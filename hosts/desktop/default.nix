@@ -10,6 +10,11 @@
       ./hardware-configuration.nix
     ];
 
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
+
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -126,15 +131,18 @@ programs.zsh = {
   };
 
 shellAliases = {
-  rebuild = "sudo nixos-rebuild switch";
-  update = "sudo nixos-rebuild switch --upgrade";
+  rebuild = "sudo nixos-rebuild switch --flake .#desktop";
+  update = "nix flake update && sudo nixos-rebuild switch --flake .#desktop";
 };
 };
 
 users.users.january.shell = pkgs.zsh;
 
 
-programs.chromium.enable = true;
+programs.chromium = {
+  enable = true;
+  enablePlasmaBrowserIntegration = true;
+};
 
 
   # Some programs need SUID wrappers, can be configured further or are
