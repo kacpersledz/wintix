@@ -35,7 +35,12 @@
     ];
   };
 
-  home-manager.users.january = import ../../home/january/default.nix;
+  home-manager = {
+    useGlobalPkgs = true;
+
+    users.january =
+      import ../../home/january/default.nix;
+  };
 
 programs.zsh = {
   enable = true;
