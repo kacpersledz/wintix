@@ -11,6 +11,21 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+    algorithm = "zstd";
+    priority = 100;
+  };
+
+  swapDevices = [
+    {
+      device = "/swap/swapfile";
+      size = 32768;
+      priority = 1;
+    }
+  ];
+
   networking.hostName = "nixos";
 
   users.users."january" = {
