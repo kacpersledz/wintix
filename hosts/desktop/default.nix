@@ -21,7 +21,7 @@
   swapDevices = [
     {
       device = "/swap/swapfile";
-      size = 32768;
+      size = 32 * 1024; # Match installed RAM for hibernation.
       priority = 1;
     }
   ];
