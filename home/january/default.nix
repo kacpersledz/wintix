@@ -10,7 +10,7 @@
   home.stateVersion = "26.05";
 
   programs.zsh.shellAliases = {
-    rebuild = "sudo nixos-rebuild switch --flake .#desktop";
-    update = "nix flake update && sudo nixos-rebuild switch --flake .#desktop";
+    rebuild = "sudo nixos-rebuild switch --flake ~/.wintix#desktop";
+    update = "nix flake update --flake ~/.wintix && sudo nixos-rebuild switch --flake ~/.wintix#desktop";
   };
 }
