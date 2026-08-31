@@ -42,26 +42,7 @@
       import ../../home/january/default.nix;
   };
 
-programs.zsh = {
-  enable = true;
-  enableCompletion = true;
-
-  autosuggestions.enable = true;
-  syntaxHighlighting.enable = true;
-
-  ohMyZsh = {
-    enable = true;
-    theme = "clean";
-    plugins = [
-      "git"
-    ];
-  };
-
-shellAliases = {
-  rebuild = "sudo nixos-rebuild switch --flake .#desktop";
-  update = "nix flake update && sudo nixos-rebuild switch --flake .#desktop";
-};
-};
+programs.zsh.enable = true;
 
 users.users.january.shell = pkgs.zsh;
 
