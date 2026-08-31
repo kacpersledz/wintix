@@ -1,8 +1,8 @@
-{ config, pkgs, ... }:
+{ config, pkgs, unstablePkgs, ... }:
 
 {
   environment.systemPackages = with pkgs; [
     git
-    codex
+    unstablePkgs.codex
   ];
 }
