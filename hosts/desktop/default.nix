@@ -35,6 +35,8 @@
     ];
   };
 
+  home-manager.users.january = import ../../home/january/default.nix;
+
 programs.zsh = {
   enable = true;
   enableCompletion = true;
