@@ -22,9 +22,13 @@ the selected disk path. Disko asks for the LUKS passphrase separately from the
 normal user's password.
 
 The installer clones Wintix into the installed user's `~/.wintix`, writes an
-untracked `hosts/<host>/storage-generated.nix` there with the new partition
-PARTUUID and ESP UUID, and installs from that checkout. This keeps the host
-definition versioned while keeping machine-specific storage identifiers local.
+ignored `hosts/<host>/storage-generated.nix` there with the new partition
+PARTUUID and ESP UUID, stages it only in that machine's local Git index, and
+installs from that checkout. Git-backed flakes include indexed files, so this
+works for both installation and normal `nixos-rebuild --flake ~/.wintix#...`.
+The file is never committed or pushed; leave its staged local addition in place
+when pulling upstream changes. This keeps host definitions versioned while
+keeping machine-specific storage identifiers local.
 
 From any working directory, use these commands to rebuild or update the desktop configuration:
 

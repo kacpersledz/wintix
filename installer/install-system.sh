@@ -5,6 +5,10 @@ prepare_checkout() {
   mkdir -p "$MOUNT_POINT/home/$USERNAME"
   git clone "$WINTIX_REPOSITORY" "$checkout"
   write_storage_config "$checkout"
+  # Git flakes include index entries but not untracked files. Stage this local,
+  # ignored override without committing it, so both nixos-install and later
+  # `nixos-rebuild --flake ~/.wintix#host` see the machine-specific IDs.
+  git -C "$checkout" add --force "hosts/$SELECTED_HOST/storage-generated.nix"
   # Disko owns filesystem and LUKS declarations.  This only refreshes hardware
   # detection for the actual machine being installed.
   nixos-generate-config --root "$MOUNT_POINT" --no-filesystems

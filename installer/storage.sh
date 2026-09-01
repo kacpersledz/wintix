@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 
 create_free_partition() {
-  local number
-  number=$(sgdisk -F "$SELECTED_DISK")
-  [[ $number =~ ^[0-9]+$ ]] || die "Could not allocate a GPT partition number safely."
+  local number parent start end
+  ((FREE_START < FREE_END)) || die "Invalid reviewed free-region bounds."
+  number=$(sfdisk --json "$SELECTED_DISK" | first_free_partition_number)
+  [[ $number =~ ^[0-9]+$ ]] || die "No free GPT partition-table slot is available."
   info "Creating one Linux partition in the reviewed free region."
   sgdisk --new="${number}:${FREE_START}:${FREE_END}" --typecode="${number}:8300" --change-name="${number}:Wintix" "$SELECTED_DISK"
   partprobe "$SELECTED_DISK"
   udevadm settle
   TARGET_PARTITION=$(part_path "$SELECTED_DISK" "$number")
   [[ -b $TARGET_PARTITION ]] || die "New partition did not appear; stopping safely."
+  parent=$(lsblk -ndo PKNAME "$TARGET_PARTITION")
+  [[ /dev/$parent == "$SELECTED_DISK" ]] || die "New partition parent does not match the selected disk."
+  read -r start end < <(sfdisk --json "$SELECTED_DISK" | jq -r --arg node "$TARGET_PARTITION" '.partitiontable.partitions[] | select(.node == $node) | "\(.start) \(.start + .size - 1)"')
+  [[ $start == "$FREE_START" && $end == "$FREE_END" ]] || die "New partition does not match the reviewed free region."
+}
+
+first_free_partition_number() {
+  jq -r '[.partitiontable.partitions[]?.node | capture("(?<number>[0-9]+)$").number | tonumber] as $used | first(range(1; 129) | select(. as $n | ($used | index($n) | not)))'
 }
 
 provision_storage() {
