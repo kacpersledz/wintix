@@ -6,7 +6,17 @@
     ../../modules/base.nix
     ../../modules/desktop.nix
     ../../modules/development.nix
+    ../../modules/storage.nix
   ];
+
+  # Stable identifiers keep the installed desktop independent of /dev/nvme names.
+  # Installer-selected targets use the diskoConfigurations outputs in flake.nix.
+  wintix.storage = {
+    enable = true;
+    mode = "selected-partition";
+    device = "/dev/disk/by-partuuid/baea0b8f-19b3-4b5f-bf48-43762b786eea";
+    efiDevice = "/dev/disk/by-uuid/051C-9FD4";
+  };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -44,8 +54,7 @@
   home-manager = {
     useGlobalPkgs = true;
 
-    users.january =
-      import ../../home/january/default.nix;
+    users.january = import ../../home/january/default.nix;
   };
 
   programs.zsh.enable = true;

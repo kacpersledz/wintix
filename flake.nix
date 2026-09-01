@@ -8,22 +8,59 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager }:
+  outputs =
+    {
+      nixpkgs,
+      nixpkgs-unstable,
+      home-manager,
+      disko,
+      ...
+    }:
     let
-      unstablePkgs = import nixpkgs-unstable {
-        system = "x86_64-linux";
-      };
+      system = "x86_64-linux";
+      unstablePkgs = import nixpkgs-unstable { inherit system; };
+      storageConfig =
+        mode:
+        {
+          device,
+          efiDevice ? null,
+          ...
+        }:
+        {
+          disko.devices.disk = import ./modules/storage-layout.nix {
+            inherit device efiDevice mode;
+          };
+        };
     in
     {
       nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
+        inherit system;
         specialArgs = { inherit unstablePkgs; };
         modules = [
+          disko.nixosModules.disko
           ./hosts/desktop/default.nix
           home-manager.nixosModules.home-manager
         ];
+      };
+
+      nixosModules.wintix-storage = ./modules/storage.nix;
+
+      # These functions are evaluated by Disko with --argstr at installer time.
+      # No target device is embedded in the reusable provisioning interface.
+      diskoConfigurations = {
+        wintix-whole-disk = storageConfig "whole-disk";
+        wintix-selected-partition = storageConfig "selected-partition";
+      };
+
+      packages.${system} = {
+        disko = disko.packages.${system}.disko;
+        default = disko.packages.${system}.disko;
       };
     };
 }
