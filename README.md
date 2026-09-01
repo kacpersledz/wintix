@@ -2,7 +2,36 @@
 
 Wintix is a personal declarative NixOS configuration. It currently contains the `desktop` host.
 
-Clone Wintix to `~/.wintix`.
+## Fresh installation
+
+1. Boot an x86_64 NixOS minimal or graphical installer ISO in UEFI mode.
+2. Connect to the network.
+3. Open a terminal and run:
+
+```sh
+sudo nix run github:kacpersledz/wintix#install
+```
+
+4. Follow the Gum TUI and reboot when installation completes.
+
+No manual clone is required. The installer creates the installed user's editable
+`~/.wintix` checkout automatically.
+
+The installer discovers the available Wintix hosts and their normal user. It
+supports a whole-disk install, a genuinely contiguous 80 GiB-or-larger free
+GPT region, or replacement of one existing 80 GiB-or-larger partition. Partial
+installs require an existing FAT EFI System Partition of at least 2 GiB and
+never resize, reformat, or recreate it. The final confirmation requires typing
+the selected disk path. Disko asks for the LUKS passphrase separately from the
+normal user's password.
+
+The installer clones Wintix into the installed user's `~/.wintix` and replaces
+the tracked empty `modules/storage-generated.nix` stub locally with the new
+partition PARTUUID and ESP UUID. It marks that local replacement
+`skip-worktree`: Git-backed flakes include it for both installation and normal
+`nixos-rebuild --flake ~/.wintix#...`, while ordinary `git status`, commits,
+and pulls do not stage or publish the machine-specific values. This keeps host
+definitions versioned while keeping machine-specific storage identifiers local.
 
 From any working directory, use these commands to rebuild or update the desktop configuration:
 
@@ -11,7 +40,10 @@ rebuild
 update
 ```
 
-## Storage provisioning
+## Manual / development storage provisioning
+
+These commands are low-level development/debugging interfaces. Normal fresh
+installation should use `nix run github:kacpersledz/wintix#install` instead.
 
 Disko is part of the flake and is only run explicitly by the installer. A
 normal `nixos-rebuild` evaluates the Disko module to obtain `fileSystems` and
