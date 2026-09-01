@@ -20,6 +20,7 @@
       nixpkgs-unstable,
       home-manager,
       disko,
+      self,
       ...
     }:
     let
@@ -56,7 +57,34 @@
 
       packages.${system} = {
         disko = disko.packages.${system}.disko;
+        installer = nixpkgs.legacyPackages.${system}.writeShellApplication {
+          name = "wintix-install";
+          runtimeInputs = with nixpkgs.legacyPackages.${system}; [
+            bash
+            coreutils
+            cryptsetup
+            curl
+            findutils
+            git
+            gnugrep
+            gnused
+            gawk
+            gptfdisk
+            jq
+            nix
+            nixos-install-tools
+            openssl
+            util-linux
+            gum
+          ];
+          text = ''exec ${./installer/install.sh} "$@"'';
+        };
         default = disko.packages.${system}.disko;
+      };
+
+      apps.${system}.install = {
+        type = "app";
+        program = "${self.packages.${system}.installer}/bin/wintix-install";
       };
     };
 }

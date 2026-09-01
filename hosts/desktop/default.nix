@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   imports = [
@@ -7,15 +7,17 @@
     ../../modules/desktop.nix
     ../../modules/development.nix
     ../../modules/storage.nix
-  ];
+  ] ++ lib.optional (builtins.pathExists ./storage-generated.nix) ./storage-generated.nix;
 
   # Stable identifiers keep the installed desktop independent of /dev/nvme names.
   # Installer-selected targets use the diskoConfigurations outputs in flake.nix.
   wintix.storage = {
     enable = true;
     mode = "selected-partition";
-    device = "/dev/disk/by-partuuid/baea0b8f-19b3-4b5f-bf48-43762b786eea";
-    efiDevice = "/dev/disk/by-uuid/051C-9FD4";
+    # A locally generated file overrides these development-machine defaults on
+    # installed systems. It is deliberately not versioned.
+    device = lib.mkDefault "/dev/disk/by-partuuid/baea0b8f-19b3-4b5f-bf48-43762b786eea";
+    efiDevice = lib.mkDefault "/dev/disk/by-uuid/051C-9FD4";
   };
 
   boot.loader.systemd-boot.enable = true;

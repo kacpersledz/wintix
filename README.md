@@ -4,6 +4,28 @@ Wintix is a personal declarative NixOS configuration. It currently contains the 
 
 Clone Wintix to `~/.wintix`.
 
+## Fresh installation
+
+From a booted x86_64 UEFI NixOS minimal or graphical installer ISO, connect to
+the network and run:
+
+```sh
+sudo nix run github:kacpersledz/wintix#install
+```
+
+The Gum TUI discovers the available Wintix hosts and their normal user. It
+supports a whole-disk install, a genuinely contiguous 80 GiB-or-larger free
+GPT region, or replacement of one existing 80 GiB-or-larger partition. Partial
+installs require an existing FAT EFI System Partition of at least 2 GiB and
+never resize, reformat, or recreate it. The final confirmation requires typing
+the selected disk path. Disko asks for the LUKS passphrase separately from the
+normal user's password.
+
+The installer clones Wintix into the installed user's `~/.wintix`, writes an
+untracked `hosts/<host>/storage-generated.nix` there with the new partition
+PARTUUID and ESP UUID, and installs from that checkout. This keeps the host
+definition versioned while keeping machine-specific storage identifiers local.
+
 From any working directory, use these commands to rebuild or update the desktop configuration:
 
 ```sh
