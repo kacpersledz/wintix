@@ -2,18 +2,22 @@
 
 Wintix is a personal declarative NixOS configuration. It currently contains the `desktop` host.
 
-Clone Wintix to `~/.wintix`.
-
 ## Fresh installation
 
-From a booted x86_64 UEFI NixOS minimal or graphical installer ISO, connect to
-the network and run:
+1. Boot an x86_64 NixOS minimal or graphical installer ISO in UEFI mode.
+2. Connect to the network.
+3. Open a terminal and run:
 
 ```sh
 sudo nix run github:kacpersledz/wintix#install
 ```
 
-The Gum TUI discovers the available Wintix hosts and their normal user. It
+4. Follow the Gum TUI and reboot when installation completes.
+
+No manual clone is required. The installer creates the installed user's editable
+`~/.wintix` checkout automatically.
+
+The installer discovers the available Wintix hosts and their normal user. It
 supports a whole-disk install, a genuinely contiguous 80 GiB-or-larger free
 GPT region, or replacement of one existing 80 GiB-or-larger partition. Partial
 installs require an existing FAT EFI System Partition of at least 2 GiB and
@@ -36,7 +40,10 @@ rebuild
 update
 ```
 
-## Storage provisioning
+## Manual / development storage provisioning
+
+These commands are low-level development/debugging interfaces. Normal fresh
+installation should use `nix run github:kacpersledz/wintix#install` instead.
 
 Disko is part of the flake and is only run explicitly by the installer. A
 normal `nixos-rebuild` evaluates the Disko module to obtain `fileSystems` and
