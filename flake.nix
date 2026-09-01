@@ -77,7 +77,10 @@
             util-linux
             gum
           ];
-          text = ''exec ${./installer/install.sh} "$@"'';
+          # Reference the whole directory so install.sh can source its sibling
+          # modules, and invoke it through Bash instead of relying on executable
+          # mode bits of a source file copied into the Nix store.
+          text = ''exec bash ${./installer}/install.sh "$@"'';
         };
         default = disko.packages.${system}.disko;
       };
