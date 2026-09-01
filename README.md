@@ -9,8 +9,14 @@ Wintix is a personal declarative NixOS configuration. It currently contains the 
 3. Open a terminal and run:
 
 ```sh
-sudo nix run github:kacpersledz/wintix#install
+sudo -i
+export NIX_CONFIG='experimental-features = nix-command flakes'
+nix run github:kacpersledz/wintix#install
 ```
+
+The stock NixOS installer ISO may have `nix-command` and `flakes` disabled. The
+`NIX_CONFIG` environment variable enables them for the initial `nix run` and is
+inherited by the installer's child Nix commands.
 
 4. Follow the Gum TUI and reboot when installation completes.
 
