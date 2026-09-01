@@ -7,7 +7,7 @@
     ../../modules/desktop.nix
     ../../modules/development.nix
     ../../modules/storage.nix
-  ] ++ lib.optional (builtins.pathExists ./storage-generated.nix) ./storage-generated.nix;
+  ];
 
   # Stable identifiers keep the installed desktop independent of /dev/nvme names.
   # Installer-selected targets use the diskoConfigurations outputs in flake.nix.

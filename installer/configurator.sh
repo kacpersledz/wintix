@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 discover_hosts() {
-  mapfile -t HOSTS < <(nix eval --json "$WINTIX_REPOSITORY#nixosConfigurations" --apply 'x: builtins.attrNames x' | jq -r '.[]')
+  mapfile -t HOSTS < <(nix eval --json "$WINTIX_FLAKE_REF#nixosConfigurations" --apply 'x: builtins.attrNames x' | jq -r '.[]')
   ((${#HOSTS[@]})) || die "No Wintix NixOS host configurations were discovered."
 }
 
@@ -10,7 +10,7 @@ select_host() {
   SELECTED_HOST=$(gum choose --header "Select Wintix host" "${HOSTS[@]}")
   # Existing normal users are authoritative. A host with zero or multiple users
   # needs a host-side definition rather than an installer guess.
-  mapfile -t NORMAL_USERS < <(nix eval --json "$WINTIX_REPOSITORY#nixosConfigurations.${SELECTED_HOST}.config.users.users" --apply 'u: builtins.filter (n: u.${n}.isNormalUser) (builtins.attrNames u)' | jq -r '.[]')
+  mapfile -t NORMAL_USERS < <(nix eval --json "$WINTIX_FLAKE_REF#nixosConfigurations.${SELECTED_HOST}.config.users.users" --apply 'u: builtins.filter (n: u.${n}.isNormalUser) (builtins.attrNames u)' | jq -r '.[]')
   [[ ${#NORMAL_USERS[@]} -eq 1 ]] || die "Host ${SELECTED_HOST} must define exactly one normal user for unattended selection."
   USERNAME=${NORMAL_USERS[0]}
 }

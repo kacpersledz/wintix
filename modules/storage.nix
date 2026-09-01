@@ -4,6 +4,8 @@ let
   cfg = config.wintix.storage;
 in
 {
+  imports = [ ./storage-generated.nix ];
+
   options.wintix.storage = {
     enable = lib.mkEnableOption "Wintix Disko storage";
 

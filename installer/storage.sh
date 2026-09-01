@@ -25,7 +25,7 @@ provision_storage() {
   assert_review_unchanged
   case $INSTALL_MODE in
     wipe)
-      nix run "$WINTIX_REPOSITORY#disko" -- --mode destroy,format,mount --flake "$WINTIX_REPOSITORY#wintix-whole-disk" --argstr device "$SELECTED_DISK"
+      nix run "$WINTIX_FLAKE_REF#disko" -- --mode destroy,format,mount --flake "$WINTIX_FLAKE_REF#wintix-whole-disk" --argstr device "$SELECTED_DISK"
       TARGET_PARTITION=$(lsblk -rpn -o PATH,TYPE,FSTYPE "$SELECTED_DISK" | awk '$2 == "part" && $3 == "crypto_LUKS" {print $1; exit}')
       [[ -n $TARGET_PARTITION ]] || die "Disko completed but its encrypted partition could not be identified."
       ESP_PARTITION=$(lsblk -rpn -o PATH,TYPE,PARTTYPE "$SELECTED_DISK" | awk '$2 == "part" && tolower($3) == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" {print $1; exit}')
@@ -33,10 +33,10 @@ provision_storage() {
       ;;
     free)
       create_free_partition
-      nix run "$WINTIX_REPOSITORY#disko" -- --mode format,mount --flake "$WINTIX_REPOSITORY#wintix-selected-partition" --argstr device "$TARGET_PARTITION"
+      nix run "$WINTIX_FLAKE_REF#disko" -- --mode format,mount --flake "$WINTIX_FLAKE_REF#wintix-selected-partition" --argstr device "$TARGET_PARTITION"
       ;;
     replace)
-      nix run "$WINTIX_REPOSITORY#disko" -- --mode format,mount --flake "$WINTIX_REPOSITORY#wintix-selected-partition" --argstr device "$TARGET_PARTITION"
+      nix run "$WINTIX_FLAKE_REF#disko" -- --mode format,mount --flake "$WINTIX_FLAKE_REF#wintix-selected-partition" --argstr device "$TARGET_PARTITION"
       ;;
   esac
   mkdir -p "$MOUNT_POINT/boot"
@@ -52,5 +52,5 @@ write_storage_config() {
   # Installed systems always use the non-destructive selected-partition module:
   # Disko's whole-disk path is provisioning-only, while the durable host config
   # must point at the encrypted root partition's stable PARTUUID.
-  printf '{ ... }:\n{\n  wintix.storage = {\n    enable = true;\n    mode = "selected-partition";\n    device = "/dev/disk/by-partuuid/%s";\n    efiDevice = "/dev/disk/by-uuid/%s";\n  };\n}\n' "$partuuid" "$efiuuid" > "$checkout/hosts/$SELECTED_HOST/storage-generated.nix"
+  printf '{ ... }:\n{\n  wintix.storage = {\n    enable = true;\n    mode = "selected-partition";\n    device = "/dev/disk/by-partuuid/%s";\n    efiDevice = "/dev/disk/by-uuid/%s";\n  };\n}\n' "$partuuid" "$efiuuid" > "$checkout/modules/storage-generated.nix"
 }

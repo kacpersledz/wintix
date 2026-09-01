@@ -3,12 +3,12 @@
 prepare_checkout() {
   local checkout="$MOUNT_POINT/home/$USERNAME/.wintix"
   mkdir -p "$MOUNT_POINT/home/$USERNAME"
-  git clone "$WINTIX_REPOSITORY" "$checkout"
+  git clone "$WINTIX_GIT_URL" "$checkout"
   write_storage_config "$checkout"
-  # Git flakes include index entries but not untracked files. Stage this local,
-  # ignored override without committing it, so both nixos-install and later
-  # `nixos-rebuild --flake ~/.wintix#host` see the machine-specific IDs.
-  git -C "$checkout" add --force "hosts/$SELECTED_HOST/storage-generated.nix"
+  # This is a tracked, empty module in Git. Its local replacement remains a
+  # tracked flake input while skip-worktree hides the machine-only change from
+  # normal status and commits. It is never staged as an added UUID file.
+  git -C "$checkout" update-index --skip-worktree modules/storage-generated.nix
   # Disko owns filesystem and LUKS declarations.  This only refreshes hardware
   # detection for the actual machine being installed.
   nixos-generate-config --root "$MOUNT_POINT" --no-filesystems

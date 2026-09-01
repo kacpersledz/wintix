@@ -4,7 +4,8 @@
 
 set -eEuo pipefail
 
-readonly WINTIX_REPOSITORY="https://github.com/kacpersledz/wintix"
+readonly WINTIX_GIT_URL="https://github.com/kacpersledz/wintix.git"
+readonly WINTIX_FLAKE_REF="github:kacpersledz/wintix"
 readonly MOUNT_POINT=/mnt
 
 info() { gum style --foreground 6 "› $*" >&2; }
