@@ -27,14 +27,10 @@
       unstablePkgs = import nixpkgs-unstable { inherit system; };
       storageConfig =
         mode:
-        {
-          device,
-          efiDevice ? null,
-          ...
-        }:
+        { device, ... }:
         {
           disko.devices.disk = import ./modules/storage-layout.nix {
-            inherit device efiDevice mode;
+            inherit device mode;
           };
         };
     in

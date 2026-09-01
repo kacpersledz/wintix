@@ -1,15 +1,12 @@
 {
   device,
   mode,
-  efiDevice ? null,
 }:
 
 assert builtins.elem mode [
   "whole-disk"
   "selected-partition"
 ];
-assert mode == "whole-disk" || efiDevice != null;
-assert mode == "whole-disk" || efiDevice != device;
 
 let
   btrfs = {
@@ -86,25 +83,12 @@ let
   selectedPartition = {
     type = "disk";
     device = device;
-    # Installer #9 calls the non-destructive format,mount path for this mode.
+    # Keep the GPT entry and boundaries, but replace this partition's contents.
     destroy = false;
+    preCreateHook = ''
+      wipefs --all --force "${device}"
+    '';
     content = encrypted;
-  };
-
-  existingEsp = {
-    type = "disk";
-    device = efiDevice;
-    # The installer validates and reuses this existing ESP; it is not a target.
-    destroy = false;
-    content = esp // {
-      # Do not let the generic filesystem create hook format an invalid ESP.
-      preCreateHook = ''
-        if ! blkid -o value -s TYPE "${efiDevice}" | grep -qx vfat; then
-          echo "The selected EFI device is not an existing vfat filesystem." >&2
-          exit 1
-        fi
-      '';
-    };
   };
 in
 if mode == "whole-disk" then
@@ -113,6 +97,5 @@ if mode == "whole-disk" then
   }
 else
   {
-    boot = existingEsp;
     wintix = selectedPartition;
   }

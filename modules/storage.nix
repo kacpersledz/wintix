@@ -60,7 +60,15 @@ in
     ];
 
     disko.devices.disk = import ./storage-layout.nix {
-      inherit (cfg) device mode efiDevice;
+      inherit (cfg) device mode;
+    };
+
+    # An existing ESP is outside selected-partition Disko's destructive scope.
+    # The installer validates/reuses it and the NixOS module only mounts it.
+    fileSystems."/boot" = lib.mkIf (cfg.mode == "selected-partition") {
+      device = cfg.efiDevice;
+      fsType = "vfat";
+      options = [ "umask=0077" ];
     };
   };
 }

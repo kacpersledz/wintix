@@ -26,19 +26,24 @@ nix run .#disko -- \
   --argstr device /dev/nvme0n1
 ```
 
-For a partition selected by the installer, pass the existing suitable ESP as
-well. This path formats only the selected partition:
+For a partition selected by the installer, validate and reuse a suitable ESP
+separately in the target NixOS configuration. The Disko command below
+destructively replaces the contents of only the selected partition while
+preserving its GPT entry and surrounding partitions:
 
 ```sh
 nix run .#disko -- \
   --mode format,mount \
   --flake .#wintix-selected-partition \
-  --argstr device /dev/nvme0n1p3 \
-  --argstr efiDevice /dev/nvme0n1p1
+  --argstr device /dev/nvme0n1p3
 ```
 
 Disko prompts interactively for the initial LUKS2 passphrase. The selected
-partition path expects the installer to validate and preserve the existing
-ESP; it does not resize or recreate surrounding GPT entries. Both layouts use
-Btrfs subvolumes mounted at `/`, `/home`, `/nix`, and `/swap`, so the existing
-`/swap/swapfile` NixOS declaration remains usable for hibernation.
+partition path explicitly wipes the selected partition's filesystem/LUKS
+signatures before creating fresh LUKS2 and Btrfs contents. The existing ESP is
+outside this Disko device tree: the installer validates/reuses it, mounts it at
+`/boot`, and supplies its path through `wintix.storage.efiDevice` for the
+NixOS configuration. Disko does not wipe, resize, or recreate that ESP or
+surrounding GPT entries. Both layouts use Btrfs subvolumes mounted at `/`,
+`/home`, `/nix`, and `/swap`, so the existing `/swap/swapfile` NixOS
+declaration remains usable for hibernation.
