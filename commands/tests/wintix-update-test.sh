@@ -44,6 +44,7 @@ write_fake_tools() {
     'set -euo pipefail' \
     'printf "nixos-rebuild %s\\n" "$*" >> "$FAKE_LOG"' \
     'if [[ ${FAKE_REBUILD_MODE:-pass} == fail ]]; then exit 92; fi' \
+    'if [[ ${FAKE_REBUILD_MODE:-pass} == dirty ]]; then printf "unexpected\\n" > "$FAKE_REBUILD_REPO/unexpected-after-rebuild.txt"; fi' \
     'if [[ -n ${FAKE_RACE_REPO:-} && ! -e ${FAKE_RACE_MARKER:-} ]]; then' \
     '  race_clone=${FAKE_RACE_CLONE:?missing race clone}' \
     '  race_origin=$(git -C "$FAKE_RACE_REPO" remote get-url origin)' \
@@ -96,17 +97,29 @@ advance_remote() {
 run_update() {
   local repo=$1
   local mode=${2:-unchanged}
+  local -a run_environment=(
+    "WINTIX_PATH=$repo"
+    "FAKE_NIX_UPDATE_MODE=$mode"
+    "FAKE_NIX_CHECK_MODE=${FAKE_NIX_CHECK_MODE:-pass}"
+    "FAKE_REBUILD_MODE=${FAKE_REBUILD_MODE:-pass}"
+    "FAKE_REBUILD_REPO=$repo"
+    "FAKE_RACE_REPO=${FAKE_RACE_REPO:-}"
+    "FAKE_RACE_MARKER=${FAKE_RACE_MARKER:-}"
+    "FAKE_RACE_CLONE=${FAKE_RACE_CLONE:-}"
+  )
+
+  if [[ ${RUN_WITHOUT_GIT_IDENTITY:-0} == 1 ]]; then
+    run_environment+=(
+      "HOME=$TEST_ROOT/no-identity-home"
+      "GIT_CONFIG_GLOBAL=$TEST_ROOT/no-identity-global"
+      'GIT_CONFIG_NOSYSTEM=1'
+    )
+  fi
 
   : > "$FAKE_LOG"
   RUN_STDOUT="$TEST_ROOT/stdout"
   RUN_STDERR="$TEST_ROOT/stderr"
-  if WINTIX_PATH="$repo" \
-    FAKE_NIX_UPDATE_MODE="$mode" \
-    FAKE_NIX_CHECK_MODE="${FAKE_NIX_CHECK_MODE:-pass}" \
-    FAKE_REBUILD_MODE="${FAKE_REBUILD_MODE:-pass}" \
-    FAKE_RACE_REPO="${FAKE_RACE_REPO:-}" \
-    FAKE_RACE_MARKER="${FAKE_RACE_MARKER:-}" \
-    FAKE_RACE_CLONE="${FAKE_RACE_CLONE:-}" \
+  if env "${run_environment[@]}" \
     bash "$UPDATE_SCRIPT" >"$RUN_STDOUT" 2>"$RUN_STDERR"; then
     RUN_RC=0
   else
@@ -170,6 +183,18 @@ git -C "$repo" checkout --quiet -b feature
 run_update "$repo"
 assert_failure
 assert_contains "$RUN_STDERR" 'checkout master'
+
+# A missing effective Git identity is rejected before any update or rebuild.
+repo=$(make_repo missing-identity)
+git -C "$repo" config --unset user.name
+git -C "$repo" config --unset user.email
+mkdir -p "$TEST_ROOT/no-identity-home"
+RUN_WITHOUT_GIT_IDENTITY=1 run_update "$repo"
+assert_failure
+assert_contains "$RUN_STDERR" 'configure user.name and user.email'
+[[ ! -s "$FAKE_LOG" ]]
+[[ $(git -C "$repo" rev-parse HEAD) == $(git -C "$repo" rev-parse origin/master) ]]
+assert_clean "$repo"
 
 # Equal local and remote is accepted, and the rebuild still runs on the
 # no-change path without creating a commit.
@@ -249,6 +274,18 @@ assert_failure
 assert_contains "$RUN_STDERR" 'nix flake check failed'
 [[ $(git -C "$repo" log -1 --format=%s) == initial ]]
 FAKE_NIX_CHECK_MODE=pass
+
+# A successful rebuild that dirties another path is rejected by the
+# post-rebuild Git-state guard before commit or push.
+repo=$(make_repo post-rebuild-dirty)
+FAKE_REBUILD_MODE=dirty run_update "$repo" lock
+assert_failure
+assert_contains "$RUN_STDERR" 'unexpected Git changes after rebuild'
+assert_contains "$RUN_STDERR" 'unexpected-after-rebuild.txt'
+[[ $(git -C "$repo" log -1 --format=%s) == initial ]]
+[[ $(git -C "$repo" rev-parse HEAD) == $(git -C "$repo" rev-parse origin/master) ]]
+[[ -n $(git -C "$repo" status --porcelain=v1) ]]
+FAKE_REBUILD_MODE=pass
 
 # If origin/master advances between rebuild and push, keep the local commit
 # and report that manual reconciliation is required.

@@ -35,6 +35,11 @@ if ! git -C "$WINTIX_PATH" remote get-url origin >/dev/null 2>&1; then
   die "repository has no origin remote"
 fi
 
+if ! git -C "$WINTIX_PATH" -c user.useConfigOnly=true var GIT_AUTHOR_IDENT >/dev/null 2>&1 || \
+  ! git -C "$WINTIX_PATH" -c user.useConfigOnly=true var GIT_COMMITTER_IDENT >/dev/null 2>&1; then
+  die "Git author/committer identity is unavailable; configure user.name and user.email before updating"
+fi
+
 refresh_status() {
   if ! git -C "$WINTIX_PATH" status \
     --porcelain=v1 \

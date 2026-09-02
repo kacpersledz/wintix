@@ -50,7 +50,8 @@ The short `rebuild` and `update` Zsh aliases delegate to these commands. Set
 `WINTIX_PATH` to use a different local checkout; otherwise they use
 `$HOME/.wintix`. `wintix-update` requires a clean `master` checkout, advances
 flake inputs, validates and switches the system, and commits and pushes only a
-changed `flake.lock`.
+changed `flake.lock`. Automatic update commits require a configured Git author
+identity, and automatic pushes require authenticated write access to `origin`.
 
 ## Manual / development storage provisioning
 
