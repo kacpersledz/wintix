@@ -30,11 +30,31 @@ select_mode() {
 }
 
 review_plan() {
-  local target preserved destroyed
+  local target preserved destroyed partitions partition
   case $INSTALL_MODE in
-    wipe) target="$SELECTED_DISK"; preserved="nothing on selected disk"; destroyed="GPT, ESP, and every partition on $SELECTED_DISK" ;;
-    free) target="sectors $FREE_START-$FREE_END (new Linux partition)"; preserved="all existing partitions including $ESP_PARTITION"; destroyed="only the new partition's contents" ;;
-    replace) target="$TARGET_PARTITION"; preserved="ESP $ESP_PARTITION and all other GPT entries/partitions"; destroyed="contents of $TARGET_PARTITION only; its GPT entry remains" ;;
+    wipe)
+      target="$SELECTED_DISK"
+      preserved="nothing on selected disk"
+      destroyed="ENTIRE SELECTED DISK: $SELECTED_DISK (GPT, ESP, and every partition)"
+      ;;
+    free)
+      target="sectors $FREE_START-$FREE_END (new Linux partition)"
+      partitions=$(lsblk -rpn -o PATH,TYPE "$SELECTED_DISK" | awk '$2 == "part" {print $1}' | paste -sd, -)
+      preserved="${partitions:-no existing partitions}, including ESP $ESP_PARTITION"
+      destroyed="new partition contents in sectors $FREE_START-$FREE_END"
+      ;;
+    replace)
+      target="$TARGET_PARTITION"
+      partitions=$(lsblk -rpn -o PATH,TYPE "$SELECTED_DISK" | awk '$2 == "part" {print $1}')
+      preserved=''
+      while read -r partition; do
+        [[ -n $partition && $partition != "$TARGET_PARTITION" ]] || continue
+        if [[ -n $preserved ]]; then preserved+=", "; fi
+        preserved+="$partition"
+      done <<<"$partitions"
+      preserved="${preserved:-none}"
+      destroyed="$TARGET_PARTITION"
+      ;;
   esac
   gum style --border normal --padding "1 2" "Host: $SELECTED_HOST
 Username: $USERNAME
@@ -42,8 +62,10 @@ Physical disk: $SELECTED_DISK
 Mode: $INSTALL_MODE
 Target: $target
 ESP: $ESP_PARTITION
-Preserved: $preserved
-Destroyed: $destroyed"
+DESTROYED: $destroyed
+PRESERVED: $preserved
+
+The scope above is the only data Wintix intends to destroy."
   lsblk -rno PATH,FSTYPE "$SELECTED_DISK" | grep -qi ntfs && warn "Windows/NTFS data was detected on this disk."
-  confirm_destructive "ERASE $SELECTED_DISK"
+  confirm_destructive
 }

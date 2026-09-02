@@ -22,10 +22,15 @@ main() {
   [[ $LUKS_NOTICE == yes ]] || die "Installation cancelled before destructive provisioning."
   USER_PASSWORD=$(read_password "Password for $USERNAME")
   provision_storage
-  checkout=$(prepare_checkout)
+  prepare_checkout
+  checkout="$MOUNT_POINT/home/$USERNAME/.wintix"
   install_system "$checkout" "$USER_PASSWORD"
   unset USER_PASSWORD
-  success "Installation complete. Editable checkout: /home/$USERNAME/.wintix"
+  if [[ ${HARDWARE_CONFIG_CHANGED:-0} == 1 ]]; then
+    warn "Installation complete with an intentional hardware configuration change in the editable checkout. Review it after boot with: cd ~/.wintix && git diff -- hosts/$SELECTED_HOST/hardware-configuration.nix"
+  else
+    success "Installation complete with a semantically unchanged hardware configuration. Editable checkout is clean: /home/$USERNAME/.wintix"
+  fi
   gum confirm "Reboot now?" && reboot
 }
 

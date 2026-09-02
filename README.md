@@ -27,17 +27,16 @@ The installer discovers the available Wintix hosts and their normal user. It
 supports a whole-disk install, a genuinely contiguous 80 GiB-or-larger free
 GPT region, or replacement of one existing 80 GiB-or-larger partition. Partial
 installs require an existing FAT EFI System Partition of at least 2 GiB and
-never resize, reformat, or recreate it. The final confirmation requires typing
-the selected disk path. Disko asks for the LUKS passphrase separately from the
-normal user's password.
+never resize, reformat, or recreate it. The installer displays the exact
+destroyed and preserved scope, then requires typing `ERASE`. Disko asks for the
+LUKS passphrase separately from the normal user's password.
 
-The installer clones Wintix into the installed user's `~/.wintix` and replaces
-the tracked empty `modules/storage-generated.nix` stub locally with the new
-partition PARTUUID and ESP UUID. It marks that local replacement
-`skip-worktree`: Git-backed flakes include it for both installation and normal
-`nixos-rebuild --flake ~/.wintix#...`, while ordinary `git status`, commits,
-and pulls do not stage or publish the machine-specific values. This keeps host
-definitions versioned while keeping machine-specific storage identifiers local.
+The installer clones Wintix into the installed user's `~/.wintix` over SSH and
+writes `modules/storage-generated.nix` only when the selected partition PARTUUID
+or ESP UUID differs from the host defaults. Hardware configuration is generated
+in a temporary location and compared as a parsed Nix expression; formatting and
+comment-only changes leave the tracked host file untouched, while genuine
+hardware or storage changes remain visible as ordinary Git diffs.
 
 From any working directory, use these commands to rebuild or update the desktop configuration:
 
