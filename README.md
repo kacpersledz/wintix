@@ -42,9 +42,15 @@ definitions versioned while keeping machine-specific storage identifiers local.
 From any working directory, use these commands to rebuild or update the desktop configuration:
 
 ```sh
-rebuild
-update
+wintix-rebuild
+wintix-update
 ```
+
+The short `rebuild` and `update` Zsh aliases delegate to these commands. Set
+`WINTIX_PATH` to use a different local checkout; otherwise they use
+`$HOME/.wintix`. `wintix-update` requires a clean `master` checkout, advances
+flake inputs, validates and switches the system, and commits and pushes only a
+changed `flake.lock`.
 
 ## Manual / development storage provisioning
 
