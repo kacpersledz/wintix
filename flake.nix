@@ -31,7 +31,26 @@
     }:
     let
       system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
       unstablePkgs = import nixpkgs-unstable { inherit system; };
+      wintixRuntimeInputs = with pkgs; [
+        bash
+        coreutils
+        git
+        nix
+        nixos-rebuild
+        sudo
+      ];
+      wintixRebuild = pkgs.writeShellApplication {
+        name = "wintix-rebuild";
+        runtimeInputs = wintixRuntimeInputs;
+        text = builtins.readFile ./commands/wintix-rebuild.sh;
+      };
+      wintixUpdate = pkgs.writeShellApplication {
+        name = "wintix-update";
+        runtimeInputs = wintixRuntimeInputs;
+        text = builtins.readFile ./commands/wintix-update.sh;
+      };
       storageConfig =
         mode:
         { device, ... }:
@@ -44,7 +63,9 @@
     {
       nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit unstablePkgs; };
+        specialArgs = {
+          inherit self unstablePkgs;
+        };
         modules = [
           disko.nixosModules.disko
           ./hosts/desktop/default.nix
@@ -66,6 +87,8 @@
 
       packages.${system} = {
         disko = disko.packages.${system}.disko;
+        wintix-rebuild = wintixRebuild;
+        wintix-update = wintixUpdate;
         installer = nixpkgs.legacyPackages.${system}.writeShellApplication {
           name = "wintix-install";
           runtimeInputs = with nixpkgs.legacyPackages.${system}; [

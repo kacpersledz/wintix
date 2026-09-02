@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, self, ... }:
 
 {
   imports = [
@@ -49,6 +49,8 @@
     ];
     packages = with pkgs; [
       kdePackages.kate
+      self.packages.${pkgs.system}.wintix-rebuild
+      self.packages.${pkgs.system}.wintix-update
     ];
     shell = pkgs.zsh;
   };
