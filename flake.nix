@@ -8,6 +8,11 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    plasma-manager = {
+      url = "github:nix-community/plasma-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+    };
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -19,6 +24,7 @@
       nixpkgs,
       nixpkgs-unstable,
       home-manager,
+      plasma-manager,
       disko,
       self,
       ...
@@ -43,6 +49,9 @@
           disko.nixosModules.disko
           ./hosts/desktop/default.nix
           home-manager.nixosModules.home-manager
+          {
+            home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
+          }
         ];
       };
 
