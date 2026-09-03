@@ -43,7 +43,12 @@ trace_live_block_source() {
 
     case $type in
       disk)
-        printf '%s\n' "$canonical"
+        printf 'disk\t%s\n' "$canonical"
+        ;;
+      rom)
+        # Optical media is a successfully resolved live source, but can never
+        # be selected because installer targets are restricted to TYPE=disk.
+        printf 'nonselectable\t%s\n' "$canonical"
         ;;
       loop)
         back_file=$(losetup -no BACK-FILE "$node" 2>/dev/null || true)
@@ -105,24 +110,26 @@ live_environment_sources() {
   done < <(tr ' ' '\n' </proc/cmdline)
 }
 
-live_disks() {
-  local source disk canonical
-  local -A disks=()
+live_media_devices() {
+  local source kind device canonical
+  local -A devices=()
 
   while read -r source; do
     [[ -n $source ]] || continue
     WINTIX_LIVE_TRACE_SEEN=()
-    while read -r disk; do
-      [[ -n $disk ]] || continue
-      canonical=$(canonical_block_device "$disk")
-      disks[$canonical]=1
+    while IFS=$'\t' read -r kind device; do
+      [[ -n $kind && -n $device ]] || continue
+      canonical=$(canonical_block_device "$device")
+      devices["$kind"$'\t'"$canonical"]=1
     done < <(trace_live_block_source "$source")
   done < <(live_environment_sources)
 
-  if ((${#disks[@]})); then
-    printf '%s\n' "${!disks[@]}" | sort -u
+  if ((${#devices[@]})); then
+    printf '%s\n' "${!devices[@]}" | sort -u
   fi
 }
+
+live_disks() { live_media_devices | awk -F '\t' '$1 == "disk" {print $2}'; }
 
 is_live_disk() {
   local candidate live
@@ -134,13 +141,14 @@ is_live_disk() {
 }
 
 assert_live_media_safe() {
-  local candidate live
+  local candidate kind live
   local -a detected=()
-  mapfile -t detected < <(live_disks)
+  mapfile -t detected < <(live_media_devices)
   ((${#detected[@]})) || die "Could not determine which physical disk backs the running live environment; refusing to continue."
   candidate=$(canonical_block_device "$SELECTED_DISK")
   for live in "${detected[@]}"; do
-    [[ $live != "$candidate" ]] || die "Selected disk is used by the live environment; choose another disk."
+    IFS=$'\t' read -r kind live <<<"$live"
+    [[ $kind != disk || $live != "$candidate" ]] || die "Selected disk is used by the live environment; choose another disk."
   done
 }
 
@@ -264,13 +272,14 @@ disk_snapshot() {
 
 select_disk() {
   local options=() disk size model
-  local live
-  local -a detected_live_disks=()
-  mapfile -t detected_live_disks < <(live_disks)
-  ((${#detected_live_disks[@]})) || die "Could not determine which physical disk backs the running live environment; refusing to show destructive targets."
+  local live kind
+  local -a detected_live_media=()
+  mapfile -t detected_live_media < <(live_media_devices)
+  ((${#detected_live_media[@]})) || die "Could not determine which physical disk backs the running live environment; refusing to show destructive targets."
   while read -r disk; do
-    for live in "${detected_live_disks[@]}"; do
-      [[ $(canonical_block_device "$disk") == "$live" ]] && continue 2
+    for live in "${detected_live_media[@]}"; do
+      IFS=$'\t' read -r kind live <<<"$live"
+      [[ $kind == disk && $(canonical_block_device "$disk") == "$live" ]] && continue 2
     done
     size=$(lsblk -dno SIZE "$disk")
     model=$(lsblk -dno MODEL "$disk" | xargs)

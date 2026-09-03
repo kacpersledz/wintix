@@ -4,7 +4,8 @@
 
 set -eEuo pipefail
 
-readonly WINTIX_GIT_URL="git@github.com:kacpersledz/wintix.git"
+readonly WINTIX_GIT_URL="https://github.com/kacpersledz/wintix.git"
+readonly WINTIX_ORIGIN_URL="git@github.com:kacpersledz/wintix.git"
 readonly WINTIX_FLAKE_REF="github:kacpersledz/wintix"
 readonly MOUNT_POINT=/mnt
 

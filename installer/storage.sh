@@ -71,9 +71,9 @@ write_storage_config() {
   desired_efi="/dev/disk/by-uuid/$efiuuid"
 
   # Host defaults describe the normal reinstall target for this checkout. If
-  # the selected identifiers already match them, the generated override stub
-  # stays untouched and the editable checkout remains clean. A different
-  # target is a real storage change, so keep the ordinary tracked diff visible.
+  # the identifiers differ, write the machine-local generated override. The
+  # checkout preparation marks this tracked file skip-worktree so routine Git
+  # status does not expose expected per-install identifiers.
   default_device=$(nix eval --raw "$checkout#nixosConfigurations.${SELECTED_HOST}.config.wintix.storage.device") || \
     die "Could not evaluate the selected host's default storage device."
   default_efi=$(nix eval --raw "$checkout#nixosConfigurations.${SELECTED_HOST}.config.wintix.storage.efiDevice") || \
