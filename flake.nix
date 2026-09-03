@@ -17,6 +17,10 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -26,6 +30,7 @@
       home-manager,
       plasma-manager,
       disko,
+      sops-nix,
       self,
       ...
     }:
@@ -51,6 +56,11 @@
         runtimeInputs = wintixRuntimeInputs;
         text = builtins.readFile ./commands/wintix-update.sh;
       };
+      wintixSecretsBootstrap = pkgs.writeShellApplication {
+        name = "wintix-secrets-bootstrap";
+        runtimeInputs = with pkgs; [ age coreutils ];
+        text = builtins.readFile ./commands/wintix-secrets-bootstrap.sh;
+      };
       storageConfig =
         mode:
         { device, ... }:
@@ -68,6 +78,7 @@
         };
         modules = [
           disko.nixosModules.disko
+          sops-nix.nixosModules.sops
           ./hosts/desktop/default.nix
           home-manager.nixosModules.home-manager
           {
@@ -89,6 +100,7 @@
         disko = disko.packages.${system}.disko;
         wintix-rebuild = wintixRebuild;
         wintix-update = wintixUpdate;
+        wintix-secrets-bootstrap = wintixSecretsBootstrap;
         installer = nixpkgs.legacyPackages.${system}.writeShellApplication {
           name = "wintix-install";
           runtimeInputs = with nixpkgs.legacyPackages.${system}; [

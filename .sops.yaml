@@ -1,0 +1,5 @@
+# Initial enrollment must replace this marker with this device's public age1...
+# recipient before creating secrets/github-ssh-key.yaml. See docs/secrets.md.
+creation_rules:
+  - path_regex: secrets/[^/]+\.yaml$
+    age: AGE_RECIPIENT_REQUIRES_LOCAL_ENROLLMENT

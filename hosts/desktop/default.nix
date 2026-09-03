@@ -6,6 +6,7 @@
     ../../modules/base.nix
     ../../modules/desktop.nix
     ../../modules/development.nix
+    ../../modules/secrets.nix
     ../../modules/storage.nix
   ];
 
@@ -51,6 +52,7 @@
       kdePackages.kate
       self.packages.${pkgs.system}.wintix-rebuild
       self.packages.${pkgs.system}.wintix-update
+      self.packages.${pkgs.system}.wintix-secrets-bootstrap
     ];
     shell = pkgs.zsh;
   };
