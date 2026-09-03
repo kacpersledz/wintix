@@ -22,10 +22,11 @@ main() {
   [[ $LUKS_NOTICE == yes ]] || die "Installation cancelled before destructive provisioning."
   USER_PASSWORD=$(read_password "Password for $USERNAME")
   provision_storage
-  checkout=$(prepare_checkout)
+  prepare_checkout
+  checkout="$MOUNT_POINT/home/$USERNAME/.wintix"
   install_system "$checkout" "$USER_PASSWORD"
   unset USER_PASSWORD
-  success "Installation complete. Editable checkout: /home/$USERNAME/.wintix"
+  report_checkout_status "$checkout"
   gum confirm "Reboot now?" && reboot
 }
 

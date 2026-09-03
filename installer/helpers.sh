@@ -5,6 +5,7 @@
 set -eEuo pipefail
 
 readonly WINTIX_GIT_URL="https://github.com/kacpersledz/wintix.git"
+readonly WINTIX_ORIGIN_URL="git@github.com:kacpersledz/wintix.git"
 readonly WINTIX_FLAKE_REF="github:kacpersledz/wintix"
 readonly MOUNT_POINT=/mnt
 
@@ -16,10 +17,10 @@ die() { gum style --foreground 1 "Error: $*" >&2; exit 1; }
 require_command() { command -v "$1" >/dev/null || die "Required command is unavailable: $1"; }
 
 confirm_destructive() {
-  local expected=$1 entered
+  local entered
   gum style --foreground 1 --bold "This operation is destructive."
-  entered=$(gum input --prompt "Type ${expected} to continue: ")
-  [[ $entered == "$expected" ]] || die "Confirmation did not match; no disk changes were made."
+  entered=$(gum input --prompt "Type ERASE to continue: ")
+  [[ $entered == ERASE ]] || die "Confirmation did not match; no disk changes were made."
 }
 
 read_password() {
