@@ -26,11 +26,7 @@ main() {
   checkout="$MOUNT_POINT/home/$USERNAME/.wintix"
   install_system "$checkout" "$USER_PASSWORD"
   unset USER_PASSWORD
-  if [[ ${HARDWARE_CONFIG_CHANGED:-0} == 1 ]]; then
-    warn "Installation complete with an intentional hardware configuration change in the editable checkout. Review it after boot with: cd ~/.wintix && git diff -- hosts/$SELECTED_HOST/hardware-configuration.nix"
-  else
-    success "Installation complete with a semantically unchanged hardware configuration. Editable checkout is clean: /home/$USERNAME/.wintix"
-  fi
+  report_checkout_status "$checkout"
   gum confirm "Reboot now?" && reboot
 }
 

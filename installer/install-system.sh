@@ -5,10 +5,31 @@ prepare_checkout() {
   mkdir -p "$MOUNT_POINT/home/$USERNAME"
   git clone "$WINTIX_GIT_URL" "$checkout"
   write_storage_config "$checkout"
+  configure_checkout_git "$checkout"
   # Disko owns filesystem and LUKS declarations.  This only refreshes hardware
   # detection for the actual machine being installed.
   update_hardware_configuration "$checkout"
   printf '%s' "$checkout"
+}
+
+configure_checkout_git() {
+  local checkout=$1
+  git -C "$checkout" remote set-url origin "$WINTIX_ORIGIN_URL"
+  # This tracked local override is consumed by Git-backed flakes, while its
+  # machine-specific identifiers stay out of routine status and commits.
+  git -C "$checkout" update-index --skip-worktree modules/storage-generated.nix
+}
+
+report_checkout_status() {
+  local checkout=$1 status
+  status=$(git -C "$checkout" status --porcelain --untracked-files=all)
+  if [[ -z $status ]]; then
+    success "Installation complete. Editable checkout is clean: /home/$USERNAME/.wintix"
+  elif [[ ${HARDWARE_CONFIG_CHANGED:-0} == 1 ]]; then
+    warn "Installation complete with visible checkout changes. Review them after boot with: cd ~/.wintix && git status --short && git diff"
+  else
+    warn "Installation complete, but the editable checkout contains unexpected visible changes. Review them after boot with: cd ~/.wintix && git status --short && git diff"
+  fi
 }
 
 nix_expressions_equal() {

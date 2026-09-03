@@ -1,4 +1,5 @@
-# Tracked empty stub. The installer replaces this in the installed checkout
-# with machine-specific storage identifiers, which remain ordinary Git changes.
+# Tracked empty stub. The installer replaces this only in the installed
+# checkout and marks the local replacement skip-worktree, keeping it visible
+# to Git-backed flakes without staging machine-specific storage identifiers.
 { ... }:
 { }

@@ -22,7 +22,7 @@ write_fake_commands() {
     'set -euo pipefail' \
     'last=${@: -1}' \
     'if [[ "$*" == *"NAME,TYPE"* ]]; then' \
-    '  printf "%s\\n" "/dev/sdb disk" "/dev/nvme0n1 disk"' \
+    '  if [[ ${FAKE_LSBLK_MODE:-default} == rom ]]; then printf "%s\\n" "/dev/vda disk" "/dev/sr0 rom"; else printf "%s\\n" "/dev/sdb disk" "/dev/nvme0n1 disk"; fi' \
     'elif [[ "$*" == *"SIZE"* ]]; then' \
     '  printf "100G\\n"' \
     'elif [[ "$*" == *"MODEL"* ]]; then' \
@@ -41,6 +41,8 @@ write_fake_commands() {
     '    /dev/nvme0n1p4) printf "/dev/nvme0n1p4\\n/dev/nvme0n1\\n" ;;' \
     '    /dev/nvme0n1) printf "/dev/nvme0n1\\n" ;;' \
     '    /dev/sdb) printf "/dev/sdb\\n" ;;' \
+    '    /dev/sr0) printf "/dev/sr0\\n" ;;' \
+    '    /dev/vda) printf "/dev/vda\\n" ;;' \
     '    *) printf "%s\\n" "$last" ;;' \
     '  esac' \
     'else' \
@@ -48,7 +50,8 @@ write_fake_commands() {
     '    /dev/mapper/live-rw) printf "dm\\n" ;;' \
     '    /dev/md/live) printf "md\\n" ;;' \
     '    /dev/loop0) printf "loop\\n" ;;' \
-    '    /dev/sdb|/dev/nvme0n1) printf "disk\\n" ;;' \
+    '    /dev/sdb|/dev/nvme0n1|/dev/vda) printf "disk\\n" ;;' \
+    '    /dev/sr0) printf "rom\\n" ;;' \
     '    /dev/*) printf "part\\n" ;;' \
     '  esac' \
     'fi' > "$TEST_BIN/lsblk"
@@ -76,7 +79,8 @@ write_fake_commands() {
     'fi' \
     'if [[ $target == "$TEST_ROOT/ventoy/wintix.iso" ]]; then printf "/dev/sdb1\\n"; exit 0; fi' \
     'if [[ "$*" == *"OPTIONS"* ]]; then exit 0; fi' \
-    'if [[ ${FAKE_FINDMNT_MODE:-live} == live ]]; then printf "/dev/mapper/live-rw\\n"; fi' > "$TEST_BIN/findmnt"
+    'if [[ ${FAKE_FINDMNT_MODE:-live} == live ]]; then printf "/dev/mapper/live-rw\\n"; fi' \
+    'if [[ ${FAKE_FINDMNT_MODE:-live} == rom ]]; then printf "/dev/sr0\\n"; fi' > "$TEST_BIN/findmnt"
   chmod +x "$TEST_BIN/findmnt"
 
   printf '%s\n' '#!/usr/bin/env bash' \
@@ -107,6 +111,12 @@ write_fake_commands() {
 
   printf '%s\n' '#!/usr/bin/env bash' \
     'set -euo pipefail' \
+    '[[ ${1:-} == --parse ]]' \
+    'sed '\''s/#.*$//; /^[[:space:]]*$/d'\'' "$2" | tr -d '\''[:space:]'\''' > "$TEST_BIN/nix-instantiate"
+  chmod +x "$TEST_BIN/nix-instantiate"
+
+  printf '%s\n' '#!/usr/bin/env bash' \
+    'set -euo pipefail' \
     'if [[ ${2:-} == PARTUUID ]]; then printf "%s\\n" "$FAKE_PARTUUID"; else printf "%s\\n" "$FAKE_ESP_UUID"; fi' > "$TEST_BIN/blkid"
   chmod +x "$TEST_BIN/blkid"
 }
@@ -128,8 +138,37 @@ export FAKE_FINDMNT_MODE
 SELECTED_DISK=/dev/nvme0n1
 assert_live_media_safe
 
+# A directly mounted ISO/CD-ROM is resolved safely even though TYPE=rom is not
+# itself a selectable target. The normal virtual disk remains available, and
+# the pre-destructive safety check accepts it.
+FAKE_FINDMNT_MODE=rom
+FAKE_LSBLK_MODE=rom
+export FAKE_FINDMNT_MODE FAKE_LSBLK_MODE
+[[ $(live_media_devices) == $'nonselectable\t/dev/sr0' ]]
+[[ -z $(live_disks) ]]
+SELECTED_DISK=/dev/vda
+assert_live_media_safe
+disk_snapshot() { printf 'stable snapshot\n'; }
+SELECTED_DISK=''
+select_disk
+[[ $SELECTED_DISK == /dev/vda ]]
+
+# No resolved disk or explicitly non-selectable medium remains fail-closed.
+FAKE_FINDMNT_MODE=none
+FAKE_LSBLK_MODE=default
+export FAKE_FINDMNT_MODE FAKE_LSBLK_MODE
+SELECTED_DISK=/dev/nvme0n1
+set +e
+unresolved_error=$(assert_live_media_safe 2>&1)
+unresolved_rc=$?
+set -e
+((unresolved_rc != 0))
+[[ $unresolved_error == *'Could not determine which physical disk'* ]]
+
 # The target remains selectable even though a different partition is mounted;
 # only the live boot disk is filtered from the physical-disk choices.
+FAKE_FINDMNT_MODE=live
+export FAKE_FINDMNT_MODE
 disk_snapshot() { printf 'stable snapshot\n'; }
 SELECTED_DISK=''
 select_disk
@@ -139,6 +178,7 @@ select_disk
 # unrelated preserved partition is not reported, and no unmount command exists
 # in this test harness for the assertion to accidentally invoke.
 FAKE_FINDMNT_MODE=mounts
+FAKE_LSBLK_MODE=default
 export FAKE_FINDMNT_MODE
 INSTALL_MODE=replace
 TARGET_PARTITION=/dev/nvme0n1p2
@@ -183,8 +223,8 @@ review_plan
 [[ $(cat "$GUM_LOG") == *'DESTROYED: ENTIRE SELECTED DISK: /dev/nvme0n1'* ]]
 [[ $(cat "$GUM_LOG") == *'PRESERVED: nothing on selected disk'* ]]
 
-# A storage override is also an ordinary file change: matching host defaults
-# leave the empty stub untouched, while different identifiers are retained.
+# Matching host defaults leave the empty stub untouched. Different identifiers
+# are retained as machine-local state hidden by skip-worktree.
 storage_checkout="$TEST_ROOT/storage-checkout"
 mkdir -p "$storage_checkout/modules"
 printf '%s\n' '# generated storage stub' '{ ... }:' '{ }' > "$storage_checkout/modules/storage-generated.nix"
@@ -202,6 +242,17 @@ export FAKE_DEFAULT_DEVICE
 write_storage_config "$storage_checkout"
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == *'device = "/dev/disk/by-partuuid/part-uuid"'* ]]
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == *'efiDevice = "/dev/disk/by-uuid/esp-uuid"'* ]]
+git -C "$storage_checkout" init --quiet --initial-branch=master
+git -C "$storage_checkout" config user.name test
+git -C "$storage_checkout" config user.email test@example.invalid
+git -C "$storage_checkout" add --all
+git -C "$storage_checkout" commit --quiet -m initial
+git -C "$storage_checkout" remote add origin "$WINTIX_GIT_URL"
+printf '\n# new machine identifier\n' >> "$storage_checkout/modules/storage-generated.nix"
+configure_checkout_git "$storage_checkout"
+[[ $(git -C "$storage_checkout" remote get-url origin) == "$WINTIX_ORIGIN_URL" ]]
+git -C "$storage_checkout" ls-files -v modules/storage-generated.nix | grep -q '^S '
+[[ -z $(git -C "$storage_checkout" status --porcelain) ]]
 
 write_hw_fixture() {
   local path=$1 kernel=$2
@@ -262,9 +313,10 @@ hardware_output=$(<"$hardware_output_file")
 [[ $hardware_output == *'git diff -- hosts/desktop/hardware-configuration.nix'* ]]
 [[ -n $(git -C "$checkout" status --porcelain) ]]
 
-# prepare_checkout's clone source is the SSH checkout remote; the flake ref is
-# intentionally a separate HTTPS-independent bootstrap reference.
-[[ $WINTIX_GIT_URL == git@github.com:kacpersledz/wintix.git ]]
+# Bootstrap cloning is anonymous; only the installed editable checkout's
+# origin is changed to SSH. The flake bootstrap ref remains independent.
+[[ $WINTIX_GIT_URL == https://github.com/kacpersledz/wintix.git ]]
+[[ $WINTIX_ORIGIN_URL == git@github.com:kacpersledz/wintix.git ]]
 [[ $WINTIX_FLAKE_REF == github:kacpersledz/wintix ]]
 
 printf 'installer tests passed\n'

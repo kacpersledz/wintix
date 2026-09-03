@@ -31,12 +31,17 @@ never resize, reformat, or recreate it. The installer displays the exact
 destroyed and preserved scope, then requires typing `ERASE`. Disko asks for the
 LUKS passphrase separately from the normal user's password.
 
-The installer clones Wintix into the installed user's `~/.wintix` over SSH and
-writes `modules/storage-generated.nix` only when the selected partition PARTUUID
-or ESP UUID differs from the host defaults. Hardware configuration is generated
-in a temporary location and compared as a parsed Nix expression; formatting and
-comment-only changes leave the tracked host file untouched, while genuine
-hardware or storage changes remain visible as ordinary Git diffs.
+The installer anonymously clones Wintix into the installed user's `~/.wintix`
+over HTTPS, then changes that editable checkout's `origin` to the SSH URL used
+for future authenticated pushes. When needed, it replaces the tracked empty
+`modules/storage-generated.nix` stub with machine-specific partition PARTUUID
+and ESP UUID values and marks that local replacement `skip-worktree`, keeping
+expected per-install identifiers out of routine Git status and commits.
+
+Hardware configuration is generated in a temporary location and compared as a
+parsed Nix expression. Formatting and comment-only changes leave the tracked
+host file untouched, while genuine hardware changes remain visible as ordinary
+Git diffs with a warning after installation.
 
 From any working directory, use these commands to rebuild or update the desktop configuration:
 
