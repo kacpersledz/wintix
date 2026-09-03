@@ -9,7 +9,6 @@ prepare_checkout() {
   # Disko owns filesystem and LUKS declarations.  This only refreshes hardware
   # detection for the actual machine being installed.
   update_hardware_configuration "$checkout"
-  printf '%s' "$checkout"
 }
 
 configure_checkout_git() {
