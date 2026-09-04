@@ -63,10 +63,12 @@ tmp_dir=$(mktemp -d "$runtime_dir/wintix-enroll.XXXXXX")
 chmod 0700 -- "$tmp_dir"
 plain=$tmp_dir/github-ssh-key.yaml
 encrypted=$tmp_dir/github-ssh-key.yaml.enc
+decrypted=$tmp_dir/wintix-github-ssh
 cleanup() { rm -rf -- "$tmp_dir"; }
 trap cleanup EXIT HUP INT TERM
 {
-  printf 'github_ssh_private_key: |-\n'
+  # Preserve the SSH private key's required final newline in the YAML scalar.
+  printf 'github_ssh_private_key: |\n'
   while IFS= read -r line || [[ -n $line ]]; do printf '  %s\n' "$line"; done <"$ssh_key"
 } >"$plain"
 chmod 0600 -- "$plain"
@@ -78,7 +80,12 @@ grep -Eq '^sops:' "$encrypted" || die "SOPS output has no metadata section"
 if grep -F 'BEGIN OPENSSH PRIVATE KEY' "$encrypted" >/dev/null; then
   die "SOPS output still contains a plaintext OpenSSH private-key header"
 fi
-sops --decrypt --input-type yaml --output-type yaml "$encrypted" >/dev/null || die "SOPS could not decrypt and validate its output"
+if ! sops --decrypt --extract '["github_ssh_private_key"]' --output-type binary "$encrypted" >"$decrypted"; then
+  die "SOPS could not decrypt and extract the SSH private key"
+fi
+chmod 0600 -- "$decrypted"
+ssh-keygen -y -f "$decrypted" >/dev/null 2>&1 || die "decrypted SOPS payload is not a valid OpenSSH private key"
+cmp -s -- "$ssh_key" "$decrypted" || die "decrypted SOPS payload does not exactly match the source SSH private key"
 mv -f -- "$encrypted" "$encrypted_file"
 chmod 0600 -- "$encrypted_file"
 
