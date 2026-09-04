@@ -1,8 +1,5 @@
-{ lib, ... }:
+{ config, ... }:
 
-let
-  secretsEnabled = builtins.getEnv "WINTIX_SECRETS_ENABLED" == "1";
-in
 {
   programs.git = {
     enable = true;
@@ -15,12 +12,27 @@ in
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    matchBlocks.github = lib.mkIf secretsEnabled {
-      host = "github.com";
-      hostname = "github.com";
-      user = "git";
-      identitiesOnly = true;
-      identityFile = "/run/secrets/wintix-github-ssh";
+    settings.github = {
+      HostName = "github.com";
+      User = "git";
+      IdentitiesOnly = true;
+      IdentityFile = config.sops.secrets.wintix-github-ssh.path;
     };
   };
+
+  sops = {
+    age.keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
+    defaultSopsFile = ../../secrets/github-ssh-key.yaml;
+    # The committed enrollment marker is deliberately not a SOPS document.
+    # Runtime decryption fails clearly after an identity is installed until the
+    # one-time enrollment helper replaces it; evaluation remains pure.
+    validateSopsFiles = false;
+    secrets.wintix-github-ssh = {
+      key = "github_ssh_private_key";
+      mode = "0400";
+    };
+  };
+
+  systemd.user.services.sops-nix.Unit.ConditionPathExists =
+    "%h/.config/sops/age/keys.txt";
 }

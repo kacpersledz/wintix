@@ -12,7 +12,9 @@ if [[ -e $key_file ]]; then
   if [[ -f $key_file ]] && age-keygen -y "$key_file" >/dev/null 2>&1; then
     chmod 0600 -- "$key_file"
     printf 'A valid Wintix age identity is already installed at %s; nothing changed.\n' "$key_file"
-    printf 'Next, run: wintix-rebuild\n'
+    recipient=$(age-keygen -y "$key_file" 2>/dev/null)
+    printf 'Public recipient: %s\n' "$recipient"
+    printf 'Next, run: systemctl --user restart sops-nix, then ssh -T git@github.com\n'
     exit 0
   fi
   printf 'wintix-secrets-bootstrap: %s exists but is not a valid age identity; refusing to overwrite it.\n' "$key_file" >&2
@@ -35,8 +37,16 @@ if ! recipient=$(age-keygen -y "$tmp" 2>/dev/null); then
   exit 1
 fi
 
-mv -n -- "$tmp" "$key_file"
+if ! ln -- "$tmp" "$key_file"; then
+  printf 'wintix-secrets-bootstrap: %s appeared while installing; refusing to replace it.\n' "$key_file" >&2
+  exit 1
+fi
+rm -f -- "$tmp"
 chmod 0600 -- "$key_file"
 trap - EXIT HUP INT TERM
 printf 'Installed age identity for recipient %s.\n' "$recipient"
-printf 'Next, run: wintix-rebuild\n'
+if systemctl --user restart sops-nix >/dev/null 2>&1; then
+  printf 'Restored the Home Manager secrets. Verify with: ssh -T git@github.com\n'
+else
+  printf 'Next, run: systemctl --user restart sops-nix, then ssh -T git@github.com\n'
+fi

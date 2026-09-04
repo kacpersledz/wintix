@@ -16,6 +16,11 @@ IFS= read -r candidate <"$2"
 printf '%s\n' age1testrecipient
 EOF
 chmod +x "$TEST_ROOT/bin/age-keygen"
+cat >"$TEST_ROOT/bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$TEST_ROOT/bin/systemctl"
 export PATH="$TEST_ROOT/bin:$PATH"
 export HOME="$TEST_ROOT/home"
 
@@ -44,6 +49,7 @@ run 'would-be-a-replacement'
 (( rc == 0 ))
 [[ $(sha256sum "$HOME/.config/sops/age/keys.txt") == "$before" ]]
 grep -F 'nothing changed' "$stdout" >/dev/null
+grep -F 'age1testrecipient' "$stdout" >/dev/null
 ! grep -F 'would-be-a-replacement' "$stdout" "$stderr"
 
 # An existing malformed file is never overwritten.

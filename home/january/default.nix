@@ -15,5 +15,6 @@
     rebuild = "wintix-rebuild";
     update = "wintix-update";
     secrets-bootstrap = "wintix-secrets-bootstrap";
+    secrets-enroll = "wintix-secrets-enroll";
   };
 }

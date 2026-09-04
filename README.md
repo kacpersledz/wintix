@@ -59,7 +59,8 @@ identity, and automatic pushes require authenticated write access to `origin`.
 
 Git, GitHub SSH, and the reinstall secrets bootstrap are documented in
 [`docs/secrets.md`](docs/secrets.md). After restoring the device age identity
-from Bitwarden, run `wintix-secrets-bootstrap` followed by `wintix-rebuild`.
+from Bitwarden, run `wintix-secrets-bootstrap`; Home Manager sops-nix then
+restores the existing device-specific GitHub SSH key without an impure rebuild.
 
 ## Manual / development storage provisioning
 

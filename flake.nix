@@ -58,8 +58,13 @@
       };
       wintixSecretsBootstrap = pkgs.writeShellApplication {
         name = "wintix-secrets-bootstrap";
-        runtimeInputs = with pkgs; [ age coreutils ];
+        runtimeInputs = with pkgs; [ age coreutils systemd ];
         text = builtins.readFile ./commands/wintix-secrets-bootstrap.sh;
+      };
+      wintixSecretsEnroll = pkgs.writeShellApplication {
+        name = "wintix-secrets-enroll";
+        runtimeInputs = with pkgs; [ age coreutils gnugrep openssh sops ];
+        text = builtins.readFile ./commands/wintix-secrets-enroll.sh;
       };
       storageConfig =
         mode:
@@ -78,11 +83,13 @@
         };
         modules = [
           disko.nixosModules.disko
-          sops-nix.nixosModules.sops
           ./hosts/desktop/default.nix
           home-manager.nixosModules.home-manager
           {
-            home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
+            home-manager.sharedModules = [
+              plasma-manager.homeModules.plasma-manager
+              sops-nix.homeManagerModules.sops
+            ];
           }
         ];
       };
@@ -101,6 +108,7 @@
         wintix-rebuild = wintixRebuild;
         wintix-update = wintixUpdate;
         wintix-secrets-bootstrap = wintixSecretsBootstrap;
+        wintix-secrets-enroll = wintixSecretsEnroll;
         installer = nixpkgs.legacyPackages.${system}.writeShellApplication {
           name = "wintix-install";
           runtimeInputs = with nixpkgs.legacyPackages.${system}; [

@@ -8,9 +8,4 @@ if ! NIXOS_REBUILD=$(command -v nixos-rebuild); then
   exit 1
 fi
 
-if [[ -r ${XDG_CONFIG_HOME:-$HOME/.config}/sops/age/keys.txt ]]; then
-  export WINTIX_SECRETS_ENABLED=1
-  exec sudo --preserve-env=WINTIX_SECRETS_ENABLED "$NIXOS_REBUILD" switch --impure --flake "$WINTIX_PATH#desktop"
-fi
-
 exec sudo "$NIXOS_REBUILD" switch --flake "$WINTIX_PATH#desktop"
