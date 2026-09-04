@@ -18,7 +18,7 @@ set -euo pipefail
 if [[ $1 == -y ]]; then
   grep -q 'BEGIN OPENSSH PRIVATE KEY' "$3"
   [[ $(tail -c 1 "$3" | od -An -tx1 | tr -d '[:space:]') == 0a ]]
-  printf 'ssh-ed25519 test-public\n'
+  printf 'ssh-ed25519 test-public embedded-comment\n'
   exit
 fi
 while (( $# )); do

@@ -49,8 +49,9 @@ if [[ -e $ssh_key || -e $ssh_key.pub ]]; then
   $use_existing || die "SSH key material already exists at $ssh_key; refusing to overwrite it (use --use-existing-key to re-encrypt it deliberately)"
   [[ -f $ssh_key && -f $ssh_key.pub ]] || die "incomplete existing SSH key pair at $ssh_key; refusing to modify it"
   derived_public=$(ssh-keygen -y -f "$ssh_key" 2>/dev/null) || die "existing SSH private key is invalid"
+  IFS=' ' read -r derived_type derived_data _ <<<"$derived_public"
   IFS=' ' read -r public_type public_data _ <"$ssh_key.pub"
-  [[ "$public_type $public_data" == "$derived_public" ]] || die "existing SSH public key does not match its private key"
+  [[ "$public_type $public_data" == "$derived_type $derived_data" ]] || die "existing SSH public key does not match its private key"
 else
   $use_existing && die "--use-existing-key was requested, but $ssh_key does not exist"
   ssh-keygen -q -t ed25519 -N '' -C 'wintix-github' -f "$ssh_key"
