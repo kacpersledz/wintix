@@ -51,6 +51,8 @@
       kdePackages.kate
       self.packages.${pkgs.system}.wintix-rebuild
       self.packages.${pkgs.system}.wintix-update
+      self.packages.${pkgs.system}.wintix-secrets-bootstrap
+      self.packages.${pkgs.system}.wintix-secrets-enroll
     ];
     shell = pkgs.zsh;
   };
@@ -62,6 +64,9 @@
   };
 
   programs.zsh.enable = true;
+
+  # Secrets administration is an intentional supported workflow on Wintix.
+  environment.systemPackages = with pkgs; [ age sops ];
 
   # Keep this at the NixOS release originally installed on this host.
   system.stateVersion = "26.05";

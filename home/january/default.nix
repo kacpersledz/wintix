@@ -4,6 +4,7 @@
   imports = [
     ../shared/plasma.nix
     ../shared/zsh.nix
+    ../shared/git-ssh.nix
   ];
 
   home.username = "january";
@@ -13,5 +14,7 @@
   programs.zsh.shellAliases = {
     rebuild = "wintix-rebuild";
     update = "wintix-update";
+    secrets-bootstrap = "wintix-secrets-bootstrap";
+    secrets-enroll = "wintix-secrets-enroll";
   };
 }

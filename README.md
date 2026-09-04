@@ -57,6 +57,11 @@ flake inputs, validates and switches the system, and commits and pushes only a
 changed `flake.lock`. Automatic update commits require a configured Git author
 identity, and automatic pushes require authenticated write access to `origin`.
 
+Git, GitHub SSH, and the reinstall secrets bootstrap are documented in
+[`docs/secrets.md`](docs/secrets.md). After restoring the device age identity
+from Bitwarden, run `wintix-secrets-bootstrap`; Home Manager sops-nix then
+restores the existing device-specific GitHub SSH key without an impure rebuild.
+
 ## Manual / development storage provisioning
 
 These commands are low-level development/debugging interfaces. Normal fresh

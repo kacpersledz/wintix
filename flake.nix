@@ -17,6 +17,10 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -26,6 +30,7 @@
       home-manager,
       plasma-manager,
       disko,
+      sops-nix,
       self,
       ...
     }:
@@ -51,6 +56,16 @@
         runtimeInputs = wintixRuntimeInputs;
         text = builtins.readFile ./commands/wintix-update.sh;
       };
+      wintixSecretsBootstrap = pkgs.writeShellApplication {
+        name = "wintix-secrets-bootstrap";
+        runtimeInputs = with pkgs; [ age coreutils systemd ];
+        text = builtins.readFile ./commands/wintix-secrets-bootstrap.sh;
+      };
+      wintixSecretsEnroll = pkgs.writeShellApplication {
+        name = "wintix-secrets-enroll";
+        runtimeInputs = with pkgs; [ age coreutils gnugrep openssh sops ];
+        text = builtins.readFile ./commands/wintix-secrets-enroll.sh;
+      };
       storageConfig =
         mode:
         { device, ... }:
@@ -71,7 +86,10 @@
           ./hosts/desktop/default.nix
           home-manager.nixosModules.home-manager
           {
-            home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
+            home-manager.sharedModules = [
+              plasma-manager.homeModules.plasma-manager
+              sops-nix.homeManagerModules.sops
+            ];
           }
         ];
       };
@@ -89,6 +107,8 @@
         disko = disko.packages.${system}.disko;
         wintix-rebuild = wintixRebuild;
         wintix-update = wintixUpdate;
+        wintix-secrets-bootstrap = wintixSecretsBootstrap;
+        wintix-secrets-enroll = wintixSecretsEnroll;
         installer = nixpkgs.legacyPackages.${system}.writeShellApplication {
           name = "wintix-install";
           runtimeInputs = with nixpkgs.legacyPackages.${system}; [
