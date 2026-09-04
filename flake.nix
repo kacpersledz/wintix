@@ -44,7 +44,6 @@
         git
         nix
         nixos-rebuild
-        sudo
       ];
       wintixRebuild = pkgs.writeShellApplication {
         name = "wintix-rebuild";
