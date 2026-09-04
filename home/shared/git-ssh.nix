@@ -12,7 +12,7 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    settings.github = {
+    settings."github.com" = {
       HostName = "github.com";
       User = "git";
       IdentitiesOnly = true;
