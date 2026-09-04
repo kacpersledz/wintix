@@ -70,7 +70,7 @@ before=$(sha256sum "$HOME/.ssh/wintix_github_ed25519"); run_enroll; (( rc != 0 )
 reset_case success; printf '%s\n' test-valid-age-identity >"$HOME/.config/sops/age/keys.txt"; run_enroll; (( rc == 0 ))
 [[ -f $HOME/.ssh/wintix_github_ed25519 ]]; grep -F 'ssh-ed25519 test-public wintix-github' "$stdout" >/dev/null
 grep -F -- '--encrypt --filename-override secrets/github-ssh-key.yaml' "$SOPS_LOG" >/dev/null
-grep -F -- '--decrypt --extract ["github_ssh_private_key"] --output-type binary' "$SOPS_LOG" >/dev/null
+grep -F -- '--decrypt --input-type yaml --extract ["github_ssh_private_key"] --output-type binary' "$SOPS_LOG" >/dev/null
 grep -q '^sops:' "$WINTIX_PATH/secrets/github-ssh-key.yaml"
 ! grep -F 'BEGIN OPENSSH PRIVATE KEY' "$WINTIX_PATH/secrets/github-ssh-key.yaml"; ! grep -F 'test-private-material' "$stdout" "$stderr"
 
