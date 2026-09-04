@@ -81,7 +81,7 @@ grep -Eq '^sops:' "$encrypted" || die "SOPS output has no metadata section"
 if grep -F 'BEGIN OPENSSH PRIVATE KEY' "$encrypted" >/dev/null; then
   die "SOPS output still contains a plaintext OpenSSH private-key header"
 fi
-if ! sops --decrypt --extract '["github_ssh_private_key"]' --output-type binary "$encrypted" >"$decrypted"; then
+if ! sops --decrypt --input-type yaml --extract '["github_ssh_private_key"]' --output-type binary "$encrypted" >"$decrypted"; then
   die "SOPS could not decrypt and extract the SSH private key"
 fi
 chmod 0600 -- "$decrypted"
