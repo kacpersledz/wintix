@@ -23,10 +23,6 @@
   sops = {
     age.keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
     defaultSopsFile = ../../secrets/github-ssh-key.yaml;
-    # The committed enrollment marker is deliberately not a SOPS document.
-    # Runtime decryption fails clearly after an identity is installed until the
-    # one-time enrollment helper replaces it; evaluation remains pure.
-    validateSopsFiles = false;
     secrets.wintix-github-ssh = {
       key = "github_ssh_private_key";
       mode = "0400";
