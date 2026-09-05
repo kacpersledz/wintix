@@ -10,6 +10,9 @@ The `sops-nix` user service has a runtime condition on
 `~/.config/sops/age/keys.txt`. Consequently a missing local age identity skips
 decryption cleanly: flake evaluation, `nix flake check`, system builds, install,
 and first boot remain pure and do not require any secret or environment switch.
+The committed encrypted SOPS document is still validated during Nix evaluation;
+that validation checks its structure and requested secret key without requiring
+the private age identity.
 
 ## Normal reinstall
 
@@ -30,18 +33,28 @@ material requires deliberate manual recovery. No impure rebuild is involved.
 
 ## Initial enrollment
 
+The current desktop is already enrolled: `.sops.yaml` contains its public age
+recipient and `secrets/github-ssh-key.yaml` contains the encrypted GitHub SSH
+private key. **Normal reinstall does not change either file.** The steps below
+document how to establish a new device enrollment or deliberately replace the
+existing one.
+
 1. Generate a device age identity with
    `age-keygen -o ~/.config/sops/age/keys.txt`, keeping the directory mode
    `0700` and file mode `0600`. Store **only this private age identity** in
    Bitwarden.
 2. Derive its public recipient with
-   `age-keygen -y ~/.config/sops/age/keys.txt`. Replace
-   `AGE_RECIPIENT_REQUIRES_LOCAL_ENROLLMENT` in `.sops.yaml` with that public
-   `age1...` value and review the change.
-3. Run `wintix-secrets-enroll`. It generates the dedicated key
-   `~/.ssh/wintix_github_ed25519`, shows only its public key, encrypts the private
-   key through a mode-`0600` temporary file, validates the SOPS result, and
-   atomically replaces the repository enrollment marker.
+   `age-keygen -y ~/.config/sops/age/keys.txt`. Set the `age:` recipient for the
+   `secrets/*.yaml` creation rule in `.sops.yaml` to that public `age1...` value
+   and review the change. On the already-enrolled desktop, the restored
+   Bitwarden identity should derive the recipient already committed there; a
+   mismatch during normal reinstall is a reason to stop, not to edit the repo.
+3. For a genuinely new enrollment, run `wintix-secrets-enroll`. It generates the
+   dedicated key `~/.ssh/wintix_github_ed25519`, shows only its public key,
+   encrypts the private key through protected temporary files, validates the
+   SOPS result, and atomically installs the encrypted repository payload. An
+   existing enrolled payload is intentionally refused unless
+   `--replace-encrypted` is supplied as part of a deliberate rotation.
 4. Register the displayed `.pub` key in GitHub. The command intentionally does
    not modify the GitHub account.
 5. Commit only `.sops.yaml` and `secrets/github-ssh-key.yaml`, restart the

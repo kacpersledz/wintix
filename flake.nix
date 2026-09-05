@@ -62,7 +62,7 @@
       };
       wintixSecretsEnroll = pkgs.writeShellApplication {
         name = "wintix-secrets-enroll";
-        runtimeInputs = with pkgs; [ age coreutils gnugrep openssh sops ];
+        runtimeInputs = with pkgs; [ age coreutils diffutils gnugrep openssh sops ];
         text = builtins.readFile ./commands/wintix-secrets-enroll.sh;
       };
       storageConfig =
@@ -134,6 +134,47 @@
           text = ''exec bash ${./installer}/install.sh "$@"'';
         };
         default = disko.packages.${system}.disko;
+      };
+
+      checks.${system} = {
+        secrets-bootstrap = pkgs.runCommand "wintix-secrets-bootstrap-test" {
+          nativeBuildInputs = with pkgs; [
+            bash
+            coreutils
+            gnugrep
+          ];
+        } ''
+          bash ${./commands}/tests/wintix-secrets-bootstrap-test.sh
+          touch "$out"
+        '';
+
+        secrets-enroll = pkgs.runCommand "wintix-secrets-enroll-test" {
+          nativeBuildInputs = with pkgs; [
+            bash
+            coreutils
+            diffutils
+            gnugrep
+            gnused
+          ];
+        } ''
+          bash ${./commands}/tests/wintix-secrets-enroll-test.sh
+          touch "$out"
+        '';
+
+        secrets-enroll-sops = pkgs.runCommand "wintix-secrets-enroll-sops-test" {
+          nativeBuildInputs = with pkgs; [
+            age
+            bash
+            coreutils
+            diffutils
+            gnugrep
+            openssh
+            sops
+          ];
+        } ''
+          bash ${./commands}/tests/wintix-secrets-enroll-sops-test.sh
+          touch "$out"
+        '';
       };
 
       apps.${system}.install = {
