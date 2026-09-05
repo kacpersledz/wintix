@@ -62,7 +62,7 @@
       };
       wintixSecretsEnroll = pkgs.writeShellApplication {
         name = "wintix-secrets-enroll";
-        runtimeInputs = with pkgs; [ age coreutils gnugrep openssh sops ];
+        runtimeInputs = with pkgs; [ age coreutils diffutils gnugrep openssh sops ];
         text = builtins.readFile ./commands/wintix-secrets-enroll.sh;
       };
       storageConfig =
@@ -152,6 +152,7 @@
           nativeBuildInputs = with pkgs; [
             bash
             coreutils
+            diffutils
             gnugrep
             gnused
           ];
@@ -165,6 +166,7 @@
             age
             bash
             coreutils
+            diffutils
             gnugrep
             openssh
             sops
