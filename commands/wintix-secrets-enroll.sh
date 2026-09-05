@@ -36,7 +36,7 @@ recipient=$(age-keygen -y "$age_file" 2>/dev/null) || die "invalid age identity 
 [[ $recipient == age1* ]] || die "age-keygen returned an invalid public recipient"
 [[ -f $sops_config ]] || die "missing $sops_config"
 if ! grep -E "^[[:space:]]*age:[[:space:]]*$recipient([[:space:]]*#.*)?$" "$sops_config" >/dev/null; then
-  die ".sops.yaml is not configured for $recipient; replace the enrollment marker with this public recipient, review the change, then rerun"
+  die ".sops.yaml is not configured for $recipient; update the public age recipient deliberately, review the change, then rerun"
 fi
 
 if [[ -e $encrypted_file ]] && ! grep -Fx -- "$marker" "$encrypted_file" >/dev/null; then
@@ -63,9 +63,14 @@ runtime_dir=${XDG_RUNTIME_DIR:-$config_home}
 tmp_dir=$(mktemp -d "$runtime_dir/wintix-enroll.XXXXXX")
 chmod 0700 -- "$tmp_dir"
 plain=$tmp_dir/github-ssh-key.yaml
-encrypted=$tmp_dir/github-ssh-key.yaml.enc
 decrypted=$tmp_dir/wintix-github-ssh
-cleanup() { rm -rf -- "$tmp_dir"; }
+mkdir -p -- "$repo/secrets"
+encrypted=$(mktemp "$repo/secrets/.github-ssh-key.yaml.XXXXXX")
+chmod 0600 -- "$encrypted"
+cleanup() {
+  rm -rf -- "$tmp_dir"
+  rm -f -- "$encrypted"
+}
 trap cleanup EXIT HUP INT TERM
 {
   # Preserve the SSH private key's required final newline in the YAML scalar.
@@ -74,9 +79,7 @@ trap cleanup EXIT HUP INT TERM
 } >"$plain"
 chmod 0600 -- "$plain"
 
-mkdir -p -- "$repo/secrets"
 (cd "$repo" && sops --encrypt --filename-override secrets/github-ssh-key.yaml "$plain") >"$encrypted"
-chmod 0600 -- "$encrypted"
 grep -Eq '^sops:' "$encrypted" || die "SOPS output has no metadata section"
 if grep -F 'BEGIN OPENSSH PRIVATE KEY' "$encrypted" >/dev/null; then
   die "SOPS output still contains a plaintext OpenSSH private-key header"
@@ -87,6 +90,8 @@ fi
 chmod 0600 -- "$decrypted"
 ssh-keygen -y -f "$decrypted" >/dev/null 2>&1 || die "decrypted SOPS payload is not a valid OpenSSH private key"
 cmp -s -- "$ssh_key" "$decrypted" || die "decrypted SOPS payload does not exactly match the source SSH private key"
+# The encrypted temporary file is deliberately created beside the destination,
+# so this rename is an atomic same-filesystem replacement.
 mv -f -- "$encrypted" "$encrypted_file"
 chmod 0600 -- "$encrypted_file"
 
