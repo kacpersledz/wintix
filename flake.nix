@@ -136,6 +136,45 @@
         default = disko.packages.${system}.disko;
       };
 
+      checks.${system} = {
+        secrets-bootstrap = pkgs.runCommand "wintix-secrets-bootstrap-test" {
+          nativeBuildInputs = with pkgs; [
+            bash
+            coreutils
+            gnugrep
+          ];
+        } ''
+          bash ${./commands}/tests/wintix-secrets-bootstrap-test.sh
+          touch "$out"
+        '';
+
+        secrets-enroll = pkgs.runCommand "wintix-secrets-enroll-test" {
+          nativeBuildInputs = with pkgs; [
+            bash
+            coreutils
+            gnugrep
+            gnused
+          ];
+        } ''
+          bash ${./commands}/tests/wintix-secrets-enroll-test.sh
+          touch "$out"
+        '';
+
+        secrets-enroll-sops = pkgs.runCommand "wintix-secrets-enroll-sops-test" {
+          nativeBuildInputs = with pkgs; [
+            age
+            bash
+            coreutils
+            gnugrep
+            openssh
+            sops
+          ];
+        } ''
+          bash ${./commands}/tests/wintix-secrets-enroll-sops-test.sh
+          touch "$out"
+        '';
+      };
+
       apps.${system}.install = {
         type = "app";
         program = "${self.packages.${system}.installer}/bin/wintix-install";
