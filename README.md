@@ -42,8 +42,9 @@ publishing machine details.
 
 During installation Wintix reads physical RAM from `/proc/meminfo`, rounds the
 persistent `/swap/swapfile` size up to a whole GiB, and shows both values in the
-review. The resulting machine-local size supports hibernation without imposing
-one fixed swap size on every workstation; zram remains at 50% of RAM.
+review. The resulting machine-local size provides swap capacity suitable for
+future hibernation/resume support without imposing one fixed swap size on every
+workstation; zram remains at 50% of RAM.
 
 From any working directory, use these commands to rebuild or update the locally selected configuration:
 
@@ -110,5 +111,5 @@ outside this Disko device tree: the installer validates/reuses it, mounts it at
 `/boot`, and supplies its path through `wintix.storage.efiDevice` for the
 NixOS configuration. Disko does not wipe, resize, or recreate that ESP or
 surrounding GPT entries. Both layouts use Btrfs subvolumes mounted at `/`,
-`/home`, `/nix`, and `/swap`, so the existing `/swap/swapfile` NixOS
-declaration remains usable for hibernation.
+`/home`, `/nix`, and `/swap`, so the `/swap/swapfile` declaration provides the
+persistent swap capacity intended for future hibernation/resume support.
