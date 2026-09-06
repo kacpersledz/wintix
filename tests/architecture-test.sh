@@ -49,7 +49,8 @@ grep -q 'Minimum target size:' installer/configurator.sh
 test -f home/ksledz/work-apps.nix
 grep -q './work-apps.nix' home/ksledz/default.nix
 grep -q 'programs.thunderbird.enable = true' home/ksledz/work-apps.nix
-grep -q 'programs.obsidian.enable = true' home/ksledz/work-apps.nix
+grep -q 'pkgs.obsidian' home/ksledz/work-apps.nix
+! grep -q 'programs.obsidian' home/ksledz/work-apps.nix
 grep -q 'unstablePkgs.slack' home/ksledz/work-apps.nix
 grep -q 'networkmanager-openvpn' hosts/work-laptop/default.nix
 ! rg -q 'thunderbird|obsidian|slack' home/january hosts/desktop
