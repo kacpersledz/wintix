@@ -1,10 +1,12 @@
-{ ... }:
+{ sops-nix, ... }:
 
 {
   imports = [
     ../shared/plasma.nix
     ../shared/zsh.nix
     ../shared/git-ssh.nix
+    sops-nix.homeManagerModules.sops
+    ./git-ssh.nix
   ];
 
   home.username = "january";

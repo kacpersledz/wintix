@@ -1,6 +1,6 @@
 # Wintix
 
-Wintix is a personal declarative NixOS configuration. It currently contains the `desktop` host.
+Wintix provides a personal `desktop` configuration and a reusable `work-laptop` configuration. The installer maps them to the `january` and `ksledz` users.
 
 ## Fresh installation
 
@@ -23,9 +23,10 @@ inherited by the installer's child Nix commands.
 No manual clone is required. The installer creates the installed user's editable
 `~/.wintix` checkout automatically.
 
-The installer discovers the available Wintix hosts and their normal user. It
-supports a whole-disk install, a genuinely contiguous 80 GiB-or-larger free
-GPT region, or replacement of one existing 80 GiB-or-larger partition. Partial
+The installer discovers the available Wintix configurations and their normal user, and prompts for a machine-local hostname. It
+supports a whole-disk install, a genuinely contiguous sufficiently large free
+GPT region, or replacement of a sufficiently large existing partition. The
+minimum is the greater of 80 GiB or swap plus 48 GiB. Partial
 installs require an existing FAT EFI System Partition of at least 2 GiB and
 never resize, reformat, or recreate it. The installer displays the exact
 destroyed and preserved scope, then requires typing `ERASE`. Disko asks for the
@@ -33,17 +34,19 @@ LUKS passphrase separately from the normal user's password.
 
 The installer anonymously clones Wintix into the installed user's `~/.wintix`
 over HTTPS, then changes that editable checkout's `origin` to the SSH URL used
-for future authenticated pushes. When needed, it replaces the tracked empty
-`modules/storage-generated.nix` stub with machine-specific partition PARTUUID
-and ESP UUID values and marks that local replacement `skip-worktree`, keeping
-expected per-install identifiers out of routine Git status and commits.
+for future authenticated pushes. It replaces tracked empty generated-module stubs with machine-local storage,
+hardware (generated using `nixos-generate-config --no-filesystems`), hostname,
+and selected-configuration state. These replacements remain part of future
+evaluations and are marked `skip-worktree`, keeping the checkout clean without
+publishing machine details.
 
-Hardware configuration is generated in a temporary location and compared as a
-parsed Nix expression. Formatting and comment-only changes leave the tracked
-host file untouched, while genuine hardware changes remain visible as ordinary
-Git diffs with a warning after installation.
+During installation Wintix reads physical RAM from `/proc/meminfo`, rounds the
+persistent `/swap/swapfile` size up to a whole GiB, and shows both values in the
+review. The resulting machine-local size provides swap capacity suitable for
+future hibernation/resume support without imposing one fixed swap size on every
+workstation; zram remains at 50% of RAM.
 
-From any working directory, use these commands to rebuild or update the desktop configuration:
+From any working directory, use these commands to rebuild or update the locally selected configuration:
 
 ```sh
 wintix-rebuild
@@ -52,7 +55,7 @@ wintix-update
 
 The short `rebuild` and `update` Zsh aliases delegate to these commands. Set
 `WINTIX_PATH` to use a different local checkout; otherwise they use
-`$HOME/.wintix`. `wintix-update` requires a clean `master` checkout, advances
+`$HOME/.wintix`. The installer persists the selection in `/etc/wintix/configuration`; neither command guesses it from the hostname. `wintix-update` requires a clean `master` checkout, advances
 flake inputs, validates and switches the system, and commits and pushes only a
 changed `flake.lock`. Automatic update commits require a configured Git author
 identity, and automatic pushes require authenticated write access to `origin`.
@@ -61,6 +64,15 @@ Git, GitHub SSH, and the reinstall secrets bootstrap are documented in
 [`docs/secrets.md`](docs/secrets.md). After restoring the device age identity
 from Bitwarden, run `wintix-secrets-bootstrap`; Home Manager sops-nix then
 restores the existing device-specific GitHub SSH key without an impure rebuild.
+This personal setup is imported only for `january`.
+
+The work role contains no credentials. After first boot, `ksledz` can run
+`wintix-work-bootstrap` to configure separate personal and work Git identities
+and Ed25519 keys. Declarative conditional includes route `~/.wintix` and
+`~/Documents/Code/personal/` repositories through the personal identity/key,
+and `~/Documents/Code/work/` through the work identity/key. Other repositories
+inherit neither identity. Existing key material is preserved, and both public
+keys are printed for manual provider registration.
 
 ## Manual / development storage provisioning
 
@@ -99,5 +111,5 @@ outside this Disko device tree: the installer validates/reuses it, mounts it at
 `/boot`, and supplies its path through `wintix.storage.efiDevice` for the
 NixOS configuration. Disko does not wipe, resize, or recreate that ESP or
 surrounding GPT entries. Both layouts use Btrfs subvolumes mounted at `/`,
-`/home`, `/nix`, and `/swap`, so the existing `/swap/swapfile` NixOS
-declaration remains usable for hibernation.
+`/home`, `/nix`, and `/swap`, so the `/swap/swapfile` declaration provides the
+persistent swap capacity intended for future hibernation/resume support.
