@@ -39,6 +39,11 @@ and selected-configuration state. These replacements remain part of future
 evaluations and are marked `skip-worktree`, keeping the checkout clean without
 publishing machine details.
 
+During installation Wintix reads physical RAM from `/proc/meminfo`, rounds the
+persistent `/swap/swapfile` size up to a whole GiB, and shows both values in the
+review. The resulting machine-local size supports hibernation without imposing
+one fixed swap size on every workstation; zram remains at 50% of RAM.
+
 From any working directory, use these commands to rebuild or update the locally selected configuration:
 
 ```sh

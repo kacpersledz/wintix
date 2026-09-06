@@ -16,24 +16,6 @@
     efiDevice = lib.mkDefault "/dev/disk/by-uuid/051C-9FD4";
   };
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-
-  zramSwap = {
-    enable = true;
-    memoryPercent = 50;
-    algorithm = "zstd";
-    priority = 100;
-  };
-
-  swapDevices = [
-    {
-      device = "/swap/swapfile";
-      size = 32 * 1024; # Match installed RAM for hibernation.
-      priority = 1;
-    }
-  ];
-
   networking.hostName = lib.mkDefault "desktop";
   wintix.configuration = lib.mkDefault "desktop";
 

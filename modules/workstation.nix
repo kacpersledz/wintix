@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, lib, ... }:
 {
   imports = [
     ./base.nix
@@ -11,7 +11,11 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   zramSwap = { enable = true; memoryPercent = 50; algorithm = "zstd"; priority = 100; };
-  swapDevices = [ { device = "/swap/swapfile"; size = 32 * 1024; priority = 1; } ];
+  swapDevices = lib.optional (config.wintix.swapSizeMiB != null) {
+    device = "/swap/swapfile";
+    size = config.wintix.swapSizeMiB;
+    priority = 1;
+  };
   programs.zsh.enable = true;
   home-manager.useGlobalPkgs = true;
   system.stateVersion = "26.05";

@@ -5,6 +5,28 @@ discover_hosts() {
   ((${#HOSTS[@]})) || die "No Wintix NixOS host configurations were discovered."
 }
 
+detect_ram() {
+  local meminfo=${1:-/proc/meminfo} mem_kib
+  mem_kib=$(awk '$1 == "MemTotal:" { print $2; exit }' "$meminfo" 2>/dev/null || true)
+  [[ $mem_kib =~ ^[0-9]+$ ]] || die "Could not detect physical RAM from $meminfo."
+  # Keep all conversion integral: MemTotal is KiB, while swapDevices.size uses
+  # MiB. Round RAM upward to MiB and swap upward to a whole GiB so common
+  # nominal capacities such as 16/32/64 GiB retain their hibernation headroom.
+  ((mem_kib >= 131072 && mem_kib <= 9007199253690368)) || \
+    die "Detected physical RAM value is outside the supported range: $mem_kib KiB."
+  RAM_SIZE_MIB=$(((mem_kib + 1023) / 1024))
+  SWAP_SIZE_MIB=$((((RAM_SIZE_MIB + 1023) / 1024) * 1024))
+  ((RAM_SIZE_MIB > 0 && SWAP_SIZE_MIB > 0)) || die "Detected physical RAM produced an invalid swap size."
+}
+
+format_mib() {
+  local mib=$1 whole tenths
+  whole=$((mib / 1024))
+  tenths=$((((mib % 1024) * 10 + 512) / 1024))
+  if ((tenths == 10)); then whole=$((whole + 1)); tenths=0; fi
+  printf '%d.%d GiB (%d MiB)' "$whole" "$tenths" "$mib"
+}
+
 select_host() {
   discover_hosts
   SELECTED_HOST=$(gum choose --header "Select Wintix host" "${HOSTS[@]}")
@@ -62,6 +84,8 @@ review_plan() {
 Hostname: $HOSTNAME
 Username: $USERNAME
 Physical disk: $SELECTED_DISK
+RAM detected: $(format_mib "$RAM_SIZE_MIB")
+Disk swap: $(format_mib "$SWAP_SIZE_MIB")
 Mode: $INSTALL_MODE
 Target: $target
 ESP: $ESP_PARTITION

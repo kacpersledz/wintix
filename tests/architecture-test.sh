@@ -16,4 +16,11 @@ grep -q 'Hostname:' installer/configurator.sh
 grep -q 'machine-generated.nix' installer/install-system.sh
 grep -q 'WINTIX_CONFIGURATION_FILE' commands/wintix-rebuild.sh
 grep -q 'WINTIX_CONFIGURATION_FILE' commands/wintix-update.sh
+grep -q 'size = config.wintix.swapSizeMiB' modules/workstation.nix
+grep -q 'memoryPercent = 50' modules/workstation.nix
+! grep -q 'swapDevices' hosts/desktop/default.nix
+! grep -q 'swapDevices' hosts/work-laptop/default.nix
+grep -q 'wintix.swapSizeMiB' installer/install-system.sh
+grep -q 'RAM detected:' installer/configurator.sh
+grep -q 'Disk swap:' installer/configurator.sh
 printf 'architecture tests passed\n'

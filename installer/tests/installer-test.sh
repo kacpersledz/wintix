@@ -128,6 +128,22 @@ source "$SCRIPT_DIR/configurator.sh"
 source "$SCRIPT_DIR/storage.sh"
 source "$SCRIPT_DIR/install-system.sh"
 
+# MemTotal is converted exactly from KiB to MiB and rounded up to a whole GiB
+# for hibernation headroom. Invalid and zero-like values fail closed.
+printf 'MemTotal:       16300000 kB\nMemFree: 1 kB\n' > "$TEST_ROOT/meminfo"
+detect_ram "$TEST_ROOT/meminfo"
+[[ $RAM_SIZE_MIB == 15918 ]]
+[[ $SWAP_SIZE_MIB == 16384 ]]
+[[ $(format_mib "$SWAP_SIZE_MIB") == '16.0 GiB (16384 MiB)' ]]
+for invalid_memtotal in 0 nope ''; do
+  printf 'MemTotal: %s kB\n' "$invalid_memtotal" > "$TEST_ROOT/meminfo-invalid"
+  set +e
+  (detect_ram "$TEST_ROOT/meminfo-invalid") >/dev/null 2>&1
+  ram_rc=$?
+  set -e
+  ((ram_rc != 0))
+done
+
 # The live environment is an ISO loop device on a device-mapper/md layer,
 # backed by the Ventoy partition. A mounted Calamares partition is deliberately
 # present in the fake system but is not consulted by live_disks.
@@ -204,6 +220,8 @@ export FAKE_FINDMNT_MODE
 SELECTED_HOST=desktop
 USERNAME=january
 HOSTNAME=desktop-one
+RAM_SIZE_MIB=15918
+SWAP_SIZE_MIB=16384
 SELECTED_DISK=/dev/nvme0n1
 INSTALL_MODE=replace
 TARGET_PARTITION=/dev/nvme0n1p2
@@ -211,6 +229,8 @@ ESP_PARTITION=/dev/nvme0n1p1
 review_plan
 [[ $(cat "$GUM_LOG") == *'DESTROYED: /dev/nvme0n1p2'* ]]
 [[ $(cat "$GUM_LOG") == *'PRESERVED: /dev/nvme0n1p1, /dev/nvme0n1p3, /dev/nvme0n1p4'* ]]
+[[ $(cat "$GUM_LOG") == *'RAM detected: 15.5 GiB (15918 MiB)'* ]]
+[[ $(cat "$GUM_LOG") == *'Disk swap: 16.0 GiB (16384 MiB)'* ]]
 [[ $(cat "$GUM_LOG") == *'Type ERASE to continue:'* ]]
 old_prompt='Type ERASE '
 old_prompt+='/dev/nvme0n1'
@@ -282,9 +302,11 @@ write_hardware_config "$checkout"
 [[ $(git hash-object "$checkout/modules/hardware-generated.nix") == $(git hash-object "$TEST_ROOT/hardware") ]]
 SELECTED_HOST=work-laptop
 HOSTNAME=work-two
+SWAP_SIZE_MIB=65536
 write_machine_config "$checkout"
 [[ $(<"$checkout/modules/machine-generated.nix") == *'networking.hostName = "work-two"'* ]]
 [[ $(<"$checkout/modules/machine-generated.nix") == *'wintix.configuration = "work-laptop"'* ]]
+[[ $(<"$checkout/modules/machine-generated.nix") == *'wintix.swapSizeMiB = 65536;'* ]]
 configure_checkout_git "$checkout"
 for generated in storage hardware machine; do
   git -C "$checkout" ls-files -v "modules/$generated-generated.nix" | grep -q '^S '

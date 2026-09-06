@@ -43,8 +43,8 @@ write_hardware_config() {
 
 write_machine_config() {
   local checkout=$1
-  printf '{ ... }:\n{\n  networking.hostName = "%s";\n  wintix.configuration = "%s";\n}\n' \
-    "$HOSTNAME" "$SELECTED_HOST" > "$checkout/modules/machine-generated.nix"
+  printf '{ ... }:\n{\n  networking.hostName = "%s";\n  wintix.configuration = "%s";\n  wintix.swapSizeMiB = %d;\n}\n' \
+    "$HOSTNAME" "$SELECTED_HOST" "$SWAP_SIZE_MIB" > "$checkout/modules/machine-generated.nix"
 }
 
 install_system() {
