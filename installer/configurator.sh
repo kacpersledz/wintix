@@ -13,6 +13,8 @@ select_host() {
   mapfile -t NORMAL_USERS < <(nix eval --json "$WINTIX_FLAKE_REF#nixosConfigurations.${SELECTED_HOST}.config.users.users" --apply 'u: builtins.filter (n: u.${n}.isNormalUser) (builtins.attrNames u)' | jq -r '.[]')
   [[ ${#NORMAL_USERS[@]} -eq 1 ]] || die "Host ${SELECTED_HOST} must define exactly one normal user for unattended selection."
   USERNAME=${NORMAL_USERS[0]}
+  HOSTNAME=$(gum input --prompt "Hostname: " --value "$SELECTED_HOST")
+  [[ $HOSTNAME =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || die "Invalid hostname (use letters, digits, and internal hyphens; maximum 63 characters)."
 }
 
 select_mode() {
@@ -56,7 +58,8 @@ review_plan() {
       destroyed="$TARGET_PARTITION"
       ;;
   esac
-  gum style --border normal --padding "1 2" "Host: $SELECTED_HOST
+  gum style --border normal --padding "1 2" "Configuration: $SELECTED_HOST
+Hostname: $HOSTNAME
 Username: $USERNAME
 Physical disk: $SELECTED_DISK
 Mode: $INSTALL_MODE

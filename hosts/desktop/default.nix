@@ -2,11 +2,7 @@
 
 {
   imports = [
-    ./hardware-configuration.nix
-    ../../modules/base.nix
-    ../../modules/desktop.nix
-    ../../modules/development.nix
-    ../../modules/storage.nix
+    ../../modules/workstation.nix
   ];
 
   # Stable identifiers keep the installed desktop independent of /dev/nvme names.
@@ -38,7 +34,8 @@
     }
   ];
 
-  networking.hostName = "nixos";
+  networking.hostName = lib.mkDefault "desktop";
+  wintix.configuration = lib.mkDefault "desktop";
 
   users.users."january" = {
     isNormalUser = true;
@@ -63,11 +60,7 @@
     users.january = import ../../home/january/default.nix;
   };
 
-  programs.zsh.enable = true;
-
   # Secrets administration is an intentional supported workflow on Wintix.
   environment.systemPackages = with pkgs; [ age sops ];
 
-  # Keep this at the NixOS release originally installed on this host.
-  system.stateVersion = "26.05";
 }

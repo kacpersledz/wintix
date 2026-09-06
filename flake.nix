@@ -65,6 +65,24 @@
         runtimeInputs = with pkgs; [ age coreutils diffutils gnugrep openssh sops ];
         text = builtins.readFile ./commands/wintix-secrets-enroll.sh;
       };
+      wintixWorkBootstrap = pkgs.writeShellApplication {
+        name = "wintix-work-bootstrap";
+        runtimeInputs = with pkgs; [ coreutils git openssh ];
+        text = builtins.readFile ./commands/wintix-work-bootstrap.sh;
+      };
+      mkWorkstation = hostModule: nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit self unstablePkgs sops-nix; };
+        modules = [
+          disko.nixosModules.disko
+          hostModule
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
+            home-manager.extraSpecialArgs = { inherit sops-nix; };
+          }
+        ];
+      };
       storageConfig =
         mode:
         { device, ... }:
@@ -75,22 +93,9 @@
         };
     in
     {
-      nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = {
-          inherit self unstablePkgs;
-        };
-        modules = [
-          disko.nixosModules.disko
-          ./hosts/desktop/default.nix
-          home-manager.nixosModules.home-manager
-          {
-            home-manager.sharedModules = [
-              plasma-manager.homeModules.plasma-manager
-              sops-nix.homeManagerModules.sops
-            ];
-          }
-        ];
+      nixosConfigurations = {
+        desktop = mkWorkstation ./hosts/desktop/default.nix;
+        work-laptop = mkWorkstation ./hosts/work-laptop/default.nix;
       };
 
       nixosModules.wintix-storage = ./modules/storage.nix;
@@ -108,6 +113,7 @@
         wintix-update = wintixUpdate;
         wintix-secrets-bootstrap = wintixSecretsBootstrap;
         wintix-secrets-enroll = wintixSecretsEnroll;
+        wintix-work-bootstrap = wintixWorkBootstrap;
         installer = nixpkgs.legacyPackages.${system}.writeShellApplication {
           name = "wintix-install";
           runtimeInputs = with nixpkgs.legacyPackages.${system}; [
@@ -137,6 +143,30 @@
       };
 
       checks.${system} = {
+        architecture = pkgs.runCommand "wintix-architecture-test" {
+          nativeBuildInputs = with pkgs; [ bash coreutils findutils gnugrep ];
+        } ''
+          bash ${./tests}/architecture-test.sh
+          touch "$out"
+        '';
+        installer = pkgs.runCommand "wintix-installer-test" {
+          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
+        } ''
+          bash ${./installer}/tests/installer-test.sh
+          touch "$out"
+        '';
+        update = pkgs.runCommand "wintix-update-test" {
+          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
+        } ''
+          bash ${./commands}/tests/wintix-update-test.sh
+          touch "$out"
+        '';
+        work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {
+          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
+        } ''
+          bash ${./commands}/tests/wintix-work-bootstrap-test.sh
+          touch "$out"
+        '';
         secrets-bootstrap = pkgs.runCommand "wintix-secrets-bootstrap-test" {
           nativeBuildInputs = with pkgs; [
             bash
