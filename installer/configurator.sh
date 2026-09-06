@@ -12,11 +12,26 @@ detect_ram() {
   # Keep all conversion integral: MemTotal is KiB, while swapDevices.size uses
   # MiB. Round RAM upward to MiB and swap upward to a whole GiB so common
   # nominal capacities such as 16/32/64 GiB retain their hibernation headroom.
-  ((mem_kib >= 131072 && mem_kib <= 9007199253690368)) || \
+  ((mem_kib >= 131072 && mem_kib <= 17179869184)) || \
     die "Detected physical RAM value is outside the supported range: $mem_kib KiB."
   RAM_SIZE_MIB=$(((mem_kib + 1023) / 1024))
   SWAP_SIZE_MIB=$((((RAM_SIZE_MIB + 1023) / 1024) * 1024))
   ((RAM_SIZE_MIB > 0 && SWAP_SIZE_MIB > 0)) || die "Detected physical RAM produced an invalid swap size."
+  calculate_minimum_target_size
+}
+
+calculate_minimum_target_size() {
+  local swap_and_headroom
+  swap_and_headroom=$(((SWAP_SIZE_MIB + 48 * 1024) * 1024 * 1024))
+  if ((swap_and_headroom > MIN_TARGET_FLOOR_BYTES)); then
+    MIN_TARGET_BYTES=$swap_and_headroom
+  else
+    MIN_TARGET_BYTES=$MIN_TARGET_FLOOR_BYTES
+  fi
+}
+
+minimum_target_display() {
+  format_mib "$((MIN_TARGET_BYTES / 1024 / 1024))"
 }
 
 format_mib() {
@@ -86,6 +101,7 @@ Username: $USERNAME
 Physical disk: $SELECTED_DISK
 RAM detected: $(format_mib "$RAM_SIZE_MIB")
 Disk swap: $(format_mib "$SWAP_SIZE_MIB")
+Minimum target size: $(minimum_target_display)
 Mode: $INSTALL_MODE
 Target: $target
 ESP: $ESP_PARTITION

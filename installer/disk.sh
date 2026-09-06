@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-readonly MIN_BYTES=$((80 * 1024 * 1024 * 1024))
+readonly MIN_TARGET_FLOOR_BYTES=$((80 * 1024 * 1024 * 1024))
 readonly MIN_ESP_BYTES=$((2 * 1024 * 1024 * 1024))
 
 part_path() { [[ $1 =~ (nvme|mmcblk|loop) ]] && printf '%sp%s' "$1" "$2" || printf '%s%s' "$1" "$2"; }
@@ -271,7 +271,7 @@ disk_snapshot() {
 }
 
 select_disk() {
-  local options=() disk size model
+  local options=() disk size size_bytes model
   local live kind
   local -a detected_live_media=()
   mapfile -t detected_live_media < <(live_media_devices)
@@ -281,11 +281,14 @@ select_disk() {
       IFS=$'\t' read -r kind live <<<"$live"
       [[ $kind == disk && $(canonical_block_device "$disk") == "$live" ]] && continue 2
     done
+    size_bytes=$(lsblk -bdno SIZE "$disk")
+    [[ $size_bytes =~ ^[0-9]+$ ]] || die "Could not determine size of installation disk $disk."
+    ((size_bytes >= MIN_TARGET_BYTES)) || continue
     size=$(lsblk -dno SIZE "$disk")
     model=$(lsblk -dno MODEL "$disk" | xargs)
     options+=("$disk | $size | ${model:-unknown model}")
   done < <(lsblk -dpno NAME,TYPE | awk '$2 == "disk" {print $1}')
-  ((${#options[@]})) || die "No non-live physical disks were found."
+  ((${#options[@]})) || die "No non-live physical disk of at least $(minimum_target_display) was found."
   SELECTED_DISK=$(gum choose --header "Select installation disk" "${options[@]}" | cut -d' ' -f1)
   DISK_REVIEW_SNAPSHOT=$(disk_snapshot "$SELECTED_DISK")
 }
@@ -316,7 +319,7 @@ free_regions_from_table() {
   ((ss > 0)) || die "Unsupported logical sector size: $ss bytes."
   alignment=$((1048576 / ss))
   ((1048576 % ss == 0 && alignment > 0)) || die "Unsupported logical sector size: $ss bytes."
-  awk -v total="$total" -v ss="$ss" -v min="$MIN_BYTES" -v alignment="$alignment" '
+  awk -v total="$total" -v ss="$ss" -v min="$MIN_TARGET_BYTES" -v alignment="$alignment" '
       function emit(a,b, start,end,bytes) { start=int((a+alignment-1)/alignment)*alignment; end=int((b+1)/alignment)*alignment-1; bytes=(end-start+1)*ss; if (end>=start && bytes>=min) print start "\t" end "\t" bytes }
       BEGIN { previous=alignment }
       { emit(previous, $1-1); if ($1+$2>previous) previous=$1+$2 }
@@ -337,7 +340,7 @@ select_free_region() {
   while IFS=$'\t' read -r start end bytes; do
     options+=("$start:$end ($(numfmt --to=iec "$bytes"))")
   done < <(free_regions "$SELECTED_DISK")
-  ((${#options[@]})) || die "No contiguous unallocated region of at least 80 GiB exists; no partitions were changed."
+  ((${#options[@]})) || die "No contiguous unallocated region of at least $(minimum_target_display) exists; no partitions were changed."
   local choice; choice=$(gum choose --header "Select contiguous unallocated region" "${options[@]}")
   parse_free_range "${choice%% *}"
 }
@@ -357,10 +360,10 @@ select_replace_partition() {
   local options=() path size fstype parttype
   while IFS=$'\t' read -r path size fstype parttype; do
     [[ $parttype == c12a7328-f81f-11d2-ba4b-00a0c93ec93b ]] && continue
-    ((size >= MIN_BYTES)) || continue
+    ((size >= MIN_TARGET_BYTES)) || continue
     options+=("$path | $(numfmt --to=iec "$size") | ${fstype:-unformatted} | ${parttype:-Linux/unknown}")
   done < <(lsblk -J -b -o PATH,TYPE,SIZE,FSTYPE,PARTTYPE "$SELECTED_DISK" | replace_candidate_rows)
-  ((${#options[@]})) || die "No non-ESP partition of at least 80 GiB is available."
+  ((${#options[@]})) || die "No non-ESP partition of at least $(minimum_target_display) is available."
   TARGET_PARTITION=$(gum choose --header "Select partition to replace (contents erased; GPT entry retained)" "${options[@]}" | cut -d' ' -f1)
 }
 

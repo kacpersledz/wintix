@@ -24,8 +24,9 @@ No manual clone is required. The installer creates the installed user's editable
 `~/.wintix` checkout automatically.
 
 The installer discovers the available Wintix configurations and their normal user, and prompts for a machine-local hostname. It
-supports a whole-disk install, a genuinely contiguous 80 GiB-or-larger free
-GPT region, or replacement of one existing 80 GiB-or-larger partition. Partial
+supports a whole-disk install, a genuinely contiguous sufficiently large free
+GPT region, or replacement of a sufficiently large existing partition. The
+minimum is the greater of 80 GiB or swap plus 48 GiB. Partial
 installs require an existing FAT EFI System Partition of at least 2 GiB and
 never resize, reformat, or recreate it. The installer displays the exact
 destroyed and preserved scope, then requires typing `ERASE`. Disko asks for the

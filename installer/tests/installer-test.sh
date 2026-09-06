@@ -16,15 +16,19 @@ trap cleanup EXIT
 
 export PATH="$TEST_BIN:$PATH"
 export GUM_LOG TEST_ROOT
+export FAKE_DISK_BYTES=$((200 * 1024 * 1024 * 1024))
+export FAKE_LSBLK_JSON='{"blockdevices":[]}'
 
 write_fake_commands() {
   printf '%s\n' '#!/usr/bin/env bash' \
     'set -euo pipefail' \
     'last=${@: -1}' \
-    'if [[ "$*" == *"NAME,TYPE"* ]]; then' \
+    'if [[ "$*" == *"-J"* ]]; then' \
+    '  printf "%s\\n" "$FAKE_LSBLK_JSON"' \
+    'elif [[ "$*" == *"NAME,TYPE"* ]]; then' \
     '  if [[ ${FAKE_LSBLK_MODE:-default} == rom ]]; then printf "%s\\n" "/dev/vda disk" "/dev/sr0 rom"; else printf "%s\\n" "/dev/sdb disk" "/dev/nvme0n1 disk"; fi' \
     'elif [[ "$*" == *"SIZE"* ]]; then' \
-    '  printf "100G\\n"' \
+    '  if [[ "$*" == *"-b"* ]]; then printf "%s\\n" "$FAKE_DISK_BYTES"; else printf "200G\\n"; fi' \
     'elif [[ "$*" == *"MODEL"* ]]; then' \
     '  printf "target\\n"' \
     'elif [[ "$*" == *"PATH,TYPE"* && $last == /dev/nvme0n1 ]]; then' \
@@ -134,6 +138,7 @@ printf 'MemTotal:       16300000 kB\nMemFree: 1 kB\n' > "$TEST_ROOT/meminfo"
 detect_ram "$TEST_ROOT/meminfo"
 [[ $RAM_SIZE_MIB == 15918 ]]
 [[ $SWAP_SIZE_MIB == 16384 ]]
+[[ $MIN_TARGET_BYTES == $((80 * 1024 * 1024 * 1024)) ]]
 [[ $(format_mib "$SWAP_SIZE_MIB") == '16.0 GiB (16384 MiB)' ]]
 for invalid_memtotal in 0 nope ''; do
   printf 'MemTotal: %s kB\n' "$invalid_memtotal" > "$TEST_ROOT/meminfo-invalid"
@@ -143,6 +148,32 @@ for invalid_memtotal in 0 nope ''; do
   set -e
   ((ram_rc != 0))
 done
+
+# The computed minimum is reused by whole-disk and replacement selection.
+SWAP_SIZE_MIB=$((128 * 1024))
+calculate_minimum_target_size
+[[ $MIN_TARGET_BYTES == $((176 * 1024 * 1024 * 1024)) ]]
+FAKE_DISK_BYTES=$((100 * 1024 * 1024 * 1024))
+set +e
+(FAKE_FINDMNT_MODE=live select_disk) >/dev/null 2>&1
+small_disk_rc=$?
+set -e
+((small_disk_rc != 0))
+
+SWAP_SIZE_MIB=$((64 * 1024))
+calculate_minimum_target_size
+FAKE_LSBLK_JSON='{"blockdevices":[{"path":"/dev/nvme0n1p2","type":"part","size":107374182400,"fstype":"ext4","parttype":"8300"}]}'
+set +e
+(select_replace_partition) >/dev/null 2>&1
+small_partition_rc=$?
+set -e
+((small_partition_rc != 0))
+
+# Restore the normal fixture values used by subsequent disk tests.
+FAKE_DISK_BYTES=$((200 * 1024 * 1024 * 1024))
+FAKE_LSBLK_JSON='{"blockdevices":[]}'
+SWAP_SIZE_MIB=16384
+calculate_minimum_target_size
 
 # The live environment is an ISO loop device on a device-mapper/md layer,
 # backed by the Ventoy partition. A mounted Calamares partition is deliberately
@@ -231,6 +262,7 @@ review_plan
 [[ $(cat "$GUM_LOG") == *'PRESERVED: /dev/nvme0n1p1, /dev/nvme0n1p3, /dev/nvme0n1p4'* ]]
 [[ $(cat "$GUM_LOG") == *'RAM detected: 15.5 GiB (15918 MiB)'* ]]
 [[ $(cat "$GUM_LOG") == *'Disk swap: 16.0 GiB (16384 MiB)'* ]]
+[[ $(cat "$GUM_LOG") == *'Minimum target size: 80.0 GiB (81920 MiB)'* ]]
 [[ $(cat "$GUM_LOG") == *'Type ERASE to continue:'* ]]
 old_prompt='Type ERASE '
 old_prompt+='/dev/nvme0n1'

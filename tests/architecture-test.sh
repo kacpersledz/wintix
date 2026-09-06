@@ -23,4 +23,8 @@ grep -q 'memoryPercent = 50' modules/workstation.nix
 grep -q 'wintix.swapSizeMiB' installer/install-system.sh
 grep -q 'RAM detected:' installer/configurator.sh
 grep -q 'Disk swap:' installer/configurator.sh
+grep -q 'swap_and_headroom' installer/configurator.sh
+grep -q 'MIN_TARGET_BYTES' installer/disk.sh
+grep -q 'Minimum target size:' installer/configurator.sh
+! grep -q 'readonly MIN_BYTES' installer/disk.sh
 printf 'architecture tests passed\n'
