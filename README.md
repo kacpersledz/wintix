@@ -66,9 +66,12 @@ restores the existing device-specific GitHub SSH key without an impure rebuild.
 This personal setup is imported only for `january`.
 
 The work role contains no credentials. After first boot, `ksledz` can run
-`wintix-work-bootstrap` to write work Git identity to the local declarative Git
-include and interactively create an Ed25519 SSH key. It preserves existing
-private keys and prints the public key for manual provider registration.
+`wintix-work-bootstrap` to configure separate personal and work Git identities
+and Ed25519 keys. Declarative conditional includes route `~/.wintix` and
+`~/Documents/Code/personal/` repositories through the personal identity/key,
+and `~/Documents/Code/work/` through the work identity/key. Other repositories
+inherit neither identity. Existing key material is preserved, and both public
+keys are printed for manual provider registration.
 
 ## Manual / development storage provisioning
 

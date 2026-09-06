@@ -3,7 +3,6 @@
   imports = [
     ./base.nix
     ./desktop.nix
-    ./development.nix
     ./storage.nix
     ./hardware-generated.nix
     ./machine.nix

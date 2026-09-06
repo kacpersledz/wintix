@@ -8,7 +8,20 @@
   home.username = "ksledz";
   home.homeDirectory = "/home/ksledz";
   home.stateVersion = "26.05";
-  programs.git.includes = [ { path = "~/.config/wintix/work-git.inc"; } ];
+  programs.git.includes = [
+    {
+      condition = "gitdir:~/.wintix/";
+      path = "~/.config/wintix/git-personal.inc";
+    }
+    {
+      condition = "gitdir:~/Documents/Code/personal/";
+      path = "~/.config/wintix/git-personal.inc";
+    }
+    {
+      condition = "gitdir:~/Documents/Code/work/";
+      path = "~/.config/wintix/git-work.inc";
+    }
+  ];
   programs.zsh.shellAliases = {
     rebuild = "wintix-rebuild";
     update = "wintix-update";

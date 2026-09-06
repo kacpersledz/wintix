@@ -150,8 +150,19 @@
           touch "$out"
         '';
         installer = pkgs.runCommand "wintix-installer-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
+          nativeBuildInputs = with pkgs; [
+            bash
+            coreutils
+            findutils
+            gawk
+            git
+            gnugrep
+            gnused
+            jq
+            util-linux
+          ];
         } ''
+          bash ${./installer}/tests/free-regions-test.sh
           bash ${./installer}/tests/installer-test.sh
           touch "$out"
         '';
@@ -162,7 +173,7 @@
           touch "$out"
         '';
         work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils findutils git gnugrep ];
         } ''
           bash ${./commands}/tests/wintix-work-bootstrap-test.sh
           touch "$out"

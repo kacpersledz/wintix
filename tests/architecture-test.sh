@@ -20,6 +20,15 @@ grep -q 'size = config.wintix.swapSizeMiB' modules/workstation.nix
 grep -q 'memoryPercent = 50' modules/workstation.nix
 ! grep -q 'swapDevices' hosts/desktop/default.nix
 ! grep -q 'swapDevices' hosts/work-laptop/default.nix
+grep -q 'development.nix' hosts/desktop/default.nix
+! grep -q 'development.nix' modules/workstation.nix
+! grep -q 'development.nix' hosts/work-laptop/default.nix
+grep -q 'by-partuuid/installer-generated' hosts/desktop/default.nix
+grep -q 'by-uuid/installer-generated' hosts/desktop/default.nix
+! grep -R -E 'by-(part)?uuid/[0-9a-fA-F]{4,}' hosts
+grep -q 'gitdir:~/.wintix/' home/ksledz/default.nix
+grep -q 'gitdir:~/Documents/Code/personal/' home/ksledz/default.nix
+grep -q 'gitdir:~/Documents/Code/work/' home/ksledz/default.nix
 grep -q 'wintix.swapSizeMiB' installer/install-system.sh
 grep -q 'RAM detected:' installer/configurator.sh
 grep -q 'Disk swap:' installer/configurator.sh

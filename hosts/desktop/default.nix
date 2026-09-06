@@ -3,6 +3,7 @@
 {
   imports = [
     ../../modules/workstation.nix
+    ../../modules/development.nix
   ];
 
   # Stable identifiers keep the installed desktop independent of /dev/nvme names.
@@ -10,10 +11,8 @@
   wintix.storage = {
     enable = true;
     mode = "selected-partition";
-    # A locally generated file overrides these development-machine defaults on
-    # installed systems. It is deliberately not versioned.
-    device = lib.mkDefault "/dev/disk/by-partuuid/baea0b8f-19b3-4b5f-bf48-43762b786eea";
-    efiDevice = lib.mkDefault "/dev/disk/by-uuid/051C-9FD4";
+    device = lib.mkDefault "/dev/disk/by-partuuid/installer-generated";
+    efiDevice = lib.mkDefault "/dev/disk/by-uuid/installer-generated";
   };
 
   networking.hostName = lib.mkDefault "desktop";
