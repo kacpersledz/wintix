@@ -2,6 +2,7 @@
 set -euo pipefail
 
 WINTIX_PATH="${WINTIX_PATH:-$HOME/.wintix}"
+WINTIX_CONFIGURATION_FILE=${WINTIX_CONFIGURATION_FILE:-/etc/wintix/configuration}
 STATUS_FILE=$(mktemp)
 STAGED_FILE=$(mktemp)
 trap 'rm -f -- "$STATUS_FILE" "$STAGED_FILE"' EXIT
@@ -10,6 +11,10 @@ die() {
   printf 'wintix-update: %s\n' "$*" >&2
   exit 1
 }
+
+[[ -f $WINTIX_CONFIGURATION_FILE ]] || die "missing installed configuration selector: $WINTIX_CONFIGURATION_FILE"
+IFS= read -r WINTIX_CONFIGURATION < "$WINTIX_CONFIGURATION_FILE"
+[[ $WINTIX_CONFIGURATION =~ ^[a-zA-Z0-9_-]+$ ]] || die "invalid installed configuration selector"
 
 for tool in git nix sudo nixos-rebuild; do
   if ! command -v "$tool" >/dev/null 2>&1; then
@@ -133,7 +138,7 @@ require_only_lockfile "unexpected Git changes before rebuild; only flake.lock ma
 if ! NIXOS_REBUILD=$(command -v nixos-rebuild); then
   die "nixos-rebuild is not available on PATH"
 fi
-if ! sudo "$NIXOS_REBUILD" switch --flake "$WINTIX_PATH#desktop"; then
+if ! sudo "$NIXOS_REBUILD" switch --flake "$WINTIX_PATH#$WINTIX_CONFIGURATION"; then
   die "nixos-rebuild failed; no commit or push was performed; flake.lock was left available for inspection"
 fi
 

@@ -4,9 +4,26 @@ set -euo pipefail
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 source "$SCRIPT_DIR/helpers.sh"
 source "$SCRIPT_DIR/disk.sh"
+source "$SCRIPT_DIR/configurator.sh"
 source "$SCRIPT_DIR/storage.sh"
 
 gaps() { free_regions_from_table "$1" "$2" | awk -F'\t' '{print $1 ":" $2}'; }
+
+for case in '16 80' '32 80' '64 112' '128 176'; do
+  read -r swap_gib expected_gib <<<"$case"
+  SWAP_SIZE_MIB=$((swap_gib * 1024))
+  calculate_minimum_target_size
+  [[ $MIN_TARGET_BYTES == $((expected_gib * 1024 * 1024 * 1024)) ]]
+done
+
+# A 100 GiB gap is no longer eligible when 64 GiB swap requires 112 GiB.
+SWAP_SIZE_MIB=$((64 * 1024))
+calculate_minimum_target_size
+[[ -z $(printf '' | gaps 209715234 512) ]]
+
+# Restore the 80 GiB floor for the established region tests below.
+SWAP_SIZE_MIB=$((16 * 1024))
+calculate_minimum_target_size
 
 # Two 50 GiB gaps must not be combined into an eligible 100 GiB gap.
 [[ -z $(printf '2048\t104857600\n209717248\t104857600\n' | gaps 419432000 512) ]]

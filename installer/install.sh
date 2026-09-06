@@ -13,6 +13,7 @@ main() {
   gum style --border double --padding "1 3" --bold "Wintix installer"
   preflight
   select_host
+  detect_ram
   select_disk
   show_disk "$SELECTED_DISK"
   select_mode

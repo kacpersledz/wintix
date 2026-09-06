@@ -5,6 +5,43 @@ discover_hosts() {
   ((${#HOSTS[@]})) || die "No Wintix NixOS host configurations were discovered."
 }
 
+detect_ram() {
+  local meminfo=${1:-/proc/meminfo} mem_kib
+  mem_kib=$(awk '$1 == "MemTotal:" { print $2; exit }' "$meminfo" 2>/dev/null || true)
+  [[ $mem_kib =~ ^[0-9]+$ ]] || die "Could not detect physical RAM from $meminfo."
+  # Keep all conversion integral: MemTotal is KiB, while swapDevices.size uses
+  # MiB. Round RAM upward to MiB and swap upward to a whole GiB so common
+  # nominal capacities such as 16/32/64 GiB retain their hibernation headroom.
+  ((mem_kib >= 131072 && mem_kib <= 17179869184)) || \
+    die "Detected physical RAM value is outside the supported range: $mem_kib KiB."
+  RAM_SIZE_MIB=$(((mem_kib + 1023) / 1024))
+  SWAP_SIZE_MIB=$((((RAM_SIZE_MIB + 1023) / 1024) * 1024))
+  ((RAM_SIZE_MIB > 0 && SWAP_SIZE_MIB > 0)) || die "Detected physical RAM produced an invalid swap size."
+  calculate_minimum_target_size
+}
+
+calculate_minimum_target_size() {
+  local swap_and_headroom
+  swap_and_headroom=$(((SWAP_SIZE_MIB + 48 * 1024) * 1024 * 1024))
+  if ((swap_and_headroom > MIN_TARGET_FLOOR_BYTES)); then
+    MIN_TARGET_BYTES=$swap_and_headroom
+  else
+    MIN_TARGET_BYTES=$MIN_TARGET_FLOOR_BYTES
+  fi
+}
+
+minimum_target_display() {
+  format_mib "$((MIN_TARGET_BYTES / 1024 / 1024))"
+}
+
+format_mib() {
+  local mib=$1 whole tenths
+  whole=$((mib / 1024))
+  tenths=$((((mib % 1024) * 10 + 512) / 1024))
+  if ((tenths == 10)); then whole=$((whole + 1)); tenths=0; fi
+  printf '%d.%d GiB (%d MiB)' "$whole" "$tenths" "$mib"
+}
+
 select_host() {
   discover_hosts
   SELECTED_HOST=$(gum choose --header "Select Wintix host" "${HOSTS[@]}")
@@ -13,6 +50,8 @@ select_host() {
   mapfile -t NORMAL_USERS < <(nix eval --json "$WINTIX_FLAKE_REF#nixosConfigurations.${SELECTED_HOST}.config.users.users" --apply 'u: builtins.filter (n: u.${n}.isNormalUser) (builtins.attrNames u)' | jq -r '.[]')
   [[ ${#NORMAL_USERS[@]} -eq 1 ]] || die "Host ${SELECTED_HOST} must define exactly one normal user for unattended selection."
   USERNAME=${NORMAL_USERS[0]}
+  HOSTNAME=$(gum input --prompt "Hostname: " --value "$SELECTED_HOST")
+  [[ $HOSTNAME =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || die "Invalid hostname (use letters, digits, and internal hyphens; maximum 63 characters)."
 }
 
 select_mode() {
@@ -56,9 +95,13 @@ review_plan() {
       destroyed="$TARGET_PARTITION"
       ;;
   esac
-  gum style --border normal --padding "1 2" "Host: $SELECTED_HOST
+  gum style --border normal --padding "1 2" "Configuration: $SELECTED_HOST
+Hostname: $HOSTNAME
 Username: $USERNAME
 Physical disk: $SELECTED_DISK
+RAM detected: $(format_mib "$RAM_SIZE_MIB")
+Disk swap: $(format_mib "$SWAP_SIZE_MIB")
+Minimum target size: $(minimum_target_display)
 Mode: $INSTALL_MODE
 Target: $target
 ESP: $ESP_PARTITION

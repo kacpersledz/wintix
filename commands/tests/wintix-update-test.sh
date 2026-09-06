@@ -99,6 +99,7 @@ run_update() {
   local mode=${2:-unchanged}
   local -a run_environment=(
     "WINTIX_PATH=$repo"
+    "WINTIX_CONFIGURATION_FILE=$TEST_ROOT/configuration"
     "FAKE_NIX_UPDATE_MODE=$mode"
     "FAKE_NIX_CHECK_MODE=${FAKE_NIX_CHECK_MODE:-pass}"
     "FAKE_REBUILD_MODE=${FAKE_REBUILD_MODE:-pass}"
@@ -163,6 +164,7 @@ assert_clean() {
 }
 
 write_fake_tools
+printf 'work-laptop\n' > "$TEST_ROOT/configuration"
 
 # Preflight rejects tracked changes, untracked files, and non-master branches.
 repo=$(make_repo dirty)
@@ -205,6 +207,7 @@ assert_success
 assert_contains "$RUN_STDOUT" 'Wintix is already up to date.'
 [[ $(git -C "$repo" rev-parse HEAD) == "$before" ]]
 assert_contains "$FAKE_LOG" 'nixos-rebuild'
+assert_contains "$FAKE_LOG" '#work-laptop'
 assert_clean "$repo"
 
 # A behind checkout fast-forwards before the update pipeline continues.
