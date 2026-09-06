@@ -2,6 +2,7 @@
 
 {
   imports = [
+    ../shared/development.nix
     ../shared/plasma.nix
     ../shared/zsh.nix
     ../shared/git-ssh.nix
