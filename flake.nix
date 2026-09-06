@@ -37,7 +37,10 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      unstablePkgs = import nixpkgs-unstable { inherit system; };
+      unstablePkgs = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
       wintixRuntimeInputs = with pkgs; [
         bash
         coreutils
@@ -79,7 +82,7 @@
           home-manager.nixosModules.home-manager
           {
             home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
-            home-manager.extraSpecialArgs = { inherit sops-nix; };
+            home-manager.extraSpecialArgs = { inherit sops-nix unstablePkgs; };
           }
         ];
       };
@@ -144,7 +147,7 @@
 
       checks.${system} = {
         architecture = pkgs.runCommand "wintix-architecture-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils findutils gnugrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils findutils gnugrep ripgrep ];
         } ''
           bash ${./tests}/architecture-test.sh
           touch "$out"

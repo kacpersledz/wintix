@@ -3,7 +3,6 @@
 {
   imports = [
     ../../modules/workstation.nix
-    ../../modules/development.nix
   ];
 
   # Reusable hosts contain only installer placeholders. The installed
