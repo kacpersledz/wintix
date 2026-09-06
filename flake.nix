@@ -173,7 +173,7 @@
           touch "$out"
         '';
         work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils findutils git gnugrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils diffutils findutils git gnugrep ];
         } ''
           bash ${./commands}/tests/wintix-work-bootstrap-test.sh
           touch "$out"
