@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_dir=${XDG_CONFIG_HOME:-"$HOME/.config"}/wintix
+config_dir="$HOME/.config/wintix"
 ssh_dir=$HOME/.ssh
 personal_key=$ssh_dir/id_ed25519_personal
 work_key=$ssh_dir/id_ed25519_work
