@@ -46,4 +46,12 @@ grep -q 'swap_and_headroom' installer/configurator.sh
 grep -q 'MIN_TARGET_BYTES' installer/disk.sh
 grep -q 'Minimum target size:' installer/configurator.sh
 ! grep -q 'readonly MIN_BYTES' installer/disk.sh
+test -f home/ksledz/work-apps.nix
+grep -q './work-apps.nix' home/ksledz/default.nix
+grep -q 'programs.thunderbird.enable = true' home/ksledz/work-apps.nix
+grep -q 'programs.obsidian.enable = true' home/ksledz/work-apps.nix
+grep -q 'unstablePkgs.slack' home/ksledz/work-apps.nix
+grep -q 'networkmanager-openvpn' hosts/work-laptop/default.nix
+! rg -q 'thunderbird|obsidian|slack' home/january hosts/desktop
+! grep -q 'networkmanager-openvpn' hosts/desktop/default.nix
 printf 'architecture tests passed\n'
