@@ -6,8 +6,8 @@
     ../../modules/development.nix
   ];
 
-  # Stable identifiers keep the installed desktop independent of /dev/nvme names.
-  # Installer-selected targets use the diskoConfigurations outputs in flake.nix.
+  # Reusable hosts contain only installer placeholders. The installed
+  # machine's real PARTUUID and ESP UUID live in storage-generated.nix.
   wintix.storage = {
     enable = true;
     mode = "selected-partition";
