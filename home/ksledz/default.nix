@@ -1,6 +1,7 @@
 { ... }:
 {
   imports = [
+    ./work-apps.nix
     ../shared/development.nix
     ../shared/plasma.nix
     ../shared/zsh.nix

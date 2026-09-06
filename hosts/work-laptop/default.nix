@@ -8,6 +8,9 @@
     efiDevice = lib.mkDefault "/dev/disk/by-uuid/installer-generated";
   };
   networking.hostName = lib.mkDefault "work-laptop";
+  networking.networkmanager.plugins = with pkgs; [
+    networkmanager-openvpn
+  ];
   wintix.configuration = lib.mkDefault "work-laptop";
   users.users.ksledz = {
     isNormalUser = true;
