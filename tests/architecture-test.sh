@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
 cd "$root"
 grep -q 'desktop = mkWorkstation' flake.nix
 grep -q 'work-laptop = mkWorkstation' flake.nix

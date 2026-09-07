@@ -17,7 +17,8 @@ export PATH="$TEST_BIN:$PATH"
 export FAKE_LOG
 
 write_fake_tools() {
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'printf "nix %s\\n" "$*" >> "$FAKE_LOG"' \
     'if [[ "$1 $2" == "flake update" ]]; then' \
@@ -34,13 +35,15 @@ write_fake_tools() {
     'fi' > "$TEST_BIN/nix"
   chmod +x "$TEST_BIN/nix"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'printf "sudo %s\\n" "$*" >> "$FAKE_LOG"' \
     'exec "$@"' > "$TEST_BIN/sudo"
   chmod +x "$TEST_BIN/sudo"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'printf "nixos-rebuild %s\\n" "$*" >> "$FAKE_LOG"' \
     'if [[ ${FAKE_REBUILD_MODE:-pass} == fail ]]; then exit 92; fi' \

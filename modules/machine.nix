@@ -17,5 +17,7 @@
     '';
   };
 
-  environment.etc."wintix/configuration".text = "${config.wintix.configuration}\n";
+  config = {
+    environment.etc."wintix/configuration".text = "${config.wintix.configuration}\n";
+  };
 }

@@ -7,13 +7,15 @@ trap 'rm -rf -- "$TEST_ROOT"' EXIT
 mkdir -p "$TEST_ROOT/bin"
 
 cat >"$TEST_ROOT/bin/age-keygen" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
 [[ $1 == -y && -f $2 ]] || exit 1
 [[ $(<"$2") == test-valid-age-identity ]] || exit 1
 printf '%s\n' age1testrecipient
 EOF
 cat >"$TEST_ROOT/bin/ssh-keygen" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
 set -euo pipefail
 if [[ $1 == -y ]]; then
   grep -q 'BEGIN OPENSSH PRIVATE KEY' "$3"
@@ -29,7 +31,8 @@ printf '%s\n' '-----BEGIN OPENSSH PRIVATE KEY-----' test-private-material '-----
 printf '%s\n' 'ssh-ed25519 test-public wintix-github' >"$key.pub"
 EOF
 cat >"$TEST_ROOT/bin/sops" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
 set -euo pipefail
 printf '%s\n' "$*" >>"$SOPS_LOG"
 if [[ $1 == --decrypt ]]; then
@@ -81,7 +84,8 @@ run_enroll --use-existing-key --replace-encrypted; (( rc == 0 )); [[ $(sha256sum
 
 # A decrypted scalar without the SSH key's final LF must be rejected before replacing ciphertext.
 cat >"$TEST_ROOT/bin/sops" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
 set -euo pipefail
 if [[ $1 == --decrypt ]]; then
   printf '%s' '-----BEGIN OPENSSH PRIVATE KEY-----
@@ -96,7 +100,8 @@ run_enroll --use-existing-key --replace-encrypted; (( rc != 0 )); grep -F 'not a
 [[ $(sha256sum "$WINTIX_PATH/secrets/github-ssh-key.yaml") == "$encrypted_before" ]]
 
 cat >"$TEST_ROOT/bin/sops" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
 printf '%s\n' 'github_ssh_private_key: |-' '  -----BEGIN OPENSSH PRIVATE KEY-----' 'sops:'
 EOF
 chmod +x "$TEST_ROOT/bin/sops"
