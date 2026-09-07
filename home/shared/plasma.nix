@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 let
-  pathWallpaper = "${pkgs.kdePackages.plasma-workspace-wallpapers}/share/wallpapers/Path/contents/images/2560x1600.jpg";
+  pathWallpaper = import ../../wallpaper.nix { inherit pkgs; };
 in
 {
   programs.plasma = {
