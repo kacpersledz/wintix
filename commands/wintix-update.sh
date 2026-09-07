@@ -129,7 +129,10 @@ fi
 
 require_only_lockfile "unexpected Git changes after nix flake update; only flake.lock may be modified"
 
-if ! nix flake check "$WINTIX_PATH"; then
+# Generated machine modules are intentionally skip-worktree. Force path-flake
+# semantics for evaluation so checks read their local contents instead of the
+# committed placeholder stubs.
+if ! nix flake check "path:$WINTIX_PATH"; then
   die "nix flake check failed; no commit or push was performed"
 fi
 
@@ -138,7 +141,7 @@ require_only_lockfile "unexpected Git changes before rebuild; only flake.lock ma
 if ! NIXOS_REBUILD=$(command -v nixos-rebuild); then
   die "nixos-rebuild is not available on PATH"
 fi
-if ! sudo "$NIXOS_REBUILD" switch --flake "$WINTIX_PATH#$WINTIX_CONFIGURATION"; then
+if ! sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATION"; then
   die "nixos-rebuild failed; no commit or push was performed; flake.lock was left available for inspection"
 fi
 
