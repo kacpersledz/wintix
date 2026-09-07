@@ -55,4 +55,5 @@ grep -q 'unstablePkgs.slack' home/ksledz/work-apps.nix
 grep -q 'networkmanager-openvpn' hosts/work-laptop/default.nix
 ! rg -q 'thunderbird|obsidian|slack' home/january hosts/desktop
 ! grep -q 'networkmanager-openvpn' hosts/desktop/default.nix
+bash "$root/tests/path-flake-regression-test.sh" "$root"
 printf 'architecture tests passed\n'
