@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 let
-  pathWallpaper = "${pkgs.kdePackages.plasma-workspace-wallpapers}/share/wallpapers/Path/contents/images/2560x1600.jpg";
+  pathWallpaper = import ../wallpaper.nix { inherit pkgs; };
   sddmTheme = pkgs.runCommand "wintix-sddm-theme" { } ''
     mkdir -p "$out/share/sddm/themes"
     cp -r ${pkgs.kdePackages.plasma-desktop}/share/sddm/themes/breeze "$out/share/sddm/themes/wintix"
