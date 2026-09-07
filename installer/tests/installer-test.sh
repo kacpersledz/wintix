@@ -20,7 +20,8 @@ export FAKE_DISK_BYTES=$((200 * 1024 * 1024 * 1024))
 export FAKE_LSBLK_JSON='{"blockdevices":[]}'
 
 write_fake_commands() {
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'last=${@: -1}' \
     'if [[ "$*" == *"-J"* ]]; then' \
@@ -61,12 +62,14 @@ write_fake_commands() {
     'fi' > "$TEST_BIN/lsblk"
   chmod +x "$TEST_BIN/lsblk"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'if [[ ${1:-} == -no && ${2:-} == BACK-FILE ]]; then printf "%s\\n" "$TEST_ROOT/ventoy/wintix.iso"; fi' > "$TEST_BIN/losetup"
   chmod +x "$TEST_BIN/losetup"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'target=' \
     'for ((i = 1; i <= $#; i++)); do' \
@@ -87,7 +90,8 @@ write_fake_commands() {
     'if [[ ${FAKE_FINDMNT_MODE:-live} == rom ]]; then printf "/dev/sr0\\n"; fi' > "$TEST_BIN/findmnt"
   chmod +x "$TEST_BIN/findmnt"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'case ${1:-} in' \
     '  style) shift; printf "%s\\n" "$*" >> "$GUM_LOG"; printf "%s\\n" "$*" ;;' \
@@ -97,14 +101,16 @@ write_fake_commands() {
     'esac' > "$TEST_BIN/gum"
   chmod +x "$TEST_BIN/gum"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'root=${2:?missing --root}' \
     'mkdir -p "$root/etc/nixos"' \
     'cp "$FAKE_HW_SOURCE" "$root/etc/nixos/hardware-configuration.nix"' > "$TEST_BIN/nixos-generate-config"
   chmod +x "$TEST_BIN/nixos-generate-config"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'case $* in' \
     '  *config.wintix.storage.device) printf "%s\\n" "$FAKE_DEFAULT_DEVICE" ;;' \
@@ -113,13 +119,15 @@ write_fake_commands() {
     'esac' > "$TEST_BIN/nix"
   chmod +x "$TEST_BIN/nix"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     '[[ ${1:-} == --parse ]]' \
     'sed '\''s/#.*$//; /^[[:space:]]*$/d'\'' "$2" | tr -d '\''[:space:]'\''' > "$TEST_BIN/nix-instantiate"
   chmod +x "$TEST_BIN/nix-instantiate"
 
-  printf '%s\n' '#!/usr/bin/env bash' \
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
     'if [[ ${2:-} == PARTUUID ]]; then printf "%s\\n" "$FAKE_PARTUUID"; else printf "%s\\n" "$FAKE_ESP_UUID"; fi' > "$TEST_BIN/blkid"
   chmod +x "$TEST_BIN/blkid"

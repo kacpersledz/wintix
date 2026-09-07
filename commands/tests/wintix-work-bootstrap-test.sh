@@ -5,7 +5,8 @@ trap 'rm -rf -- "$root"' EXIT
 mkdir -p "$root/bin" "$root/home"
 
 cat > "$root/bin/ssh-keygen" <<'FAKE'
-#!/usr/bin/env bash
+#!/bin/sh
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
 set -euo pipefail
 if [[ ${1:-} == -y ]]; then
   key=${3:?}

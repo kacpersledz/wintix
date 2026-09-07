@@ -149,7 +149,7 @@
         architecture = pkgs.runCommand "wintix-architecture-test" {
           nativeBuildInputs = with pkgs; [ bash coreutils findutils gnugrep ripgrep ];
         } ''
-          bash ${./tests}/architecture-test.sh
+          bash ${./tests}/architecture-test.sh ${./.}
           touch "$out"
         '';
         installer = pkgs.runCommand "wintix-installer-test" {

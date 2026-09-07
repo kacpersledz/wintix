@@ -8,16 +8,16 @@ mkdir -p "$TEST_ROOT/bin"
 
 valid='test-valid-identity'
 cat >"$TEST_ROOT/bin/age-keygen" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-[[ $# == 2 && $1 == -y ]]
+#!/bin/sh
+set -eu
+[ "$#" -eq 2 ] && [ "$1" = -y ]
 IFS= read -r candidate <"$2"
-[[ $candidate == test-valid-identity ]]
+[ "$candidate" = test-valid-identity ]
 printf '%s\n' age1testrecipient
 EOF
 chmod +x "$TEST_ROOT/bin/age-keygen"
 cat >"$TEST_ROOT/bin/systemctl" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
 exit 0
 EOF
 chmod +x "$TEST_ROOT/bin/systemctl"

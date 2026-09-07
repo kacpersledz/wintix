@@ -60,6 +60,10 @@ write_identity() {
   mv -f -- "$tmp" "$path"
 }
 
+personal_name=''
+personal_email=''
+work_name=''
+work_email=''
 read_identity Personal personal_name personal_email
 read_identity Work work_name work_email
 
