@@ -15,8 +15,9 @@ prepare_checkout() {
 configure_checkout_git() {
   local checkout=$1
   git -C "$checkout" remote set-url origin "$WINTIX_ORIGIN_URL"
-  # This tracked local override is consumed by Git-backed flakes, while its
-  # machine-specific identifiers stay out of routine status and commits.
+  # Generated machine state stays tracked but hidden from routine Git status.
+  # Nix evaluations that must consume it explicitly use path: flakes so Git's
+  # skip-worktree index view cannot replace the local values with stub content.
   git -C "$checkout" update-index --skip-worktree modules/storage-generated.nix modules/hardware-generated.nix modules/machine-generated.nix
 }
 
@@ -51,7 +52,9 @@ install_system() {
   local checkout=$1 password=$2 hash
   # Password data never enters arguments, logs, or the generated checkout.
   hash=$(printf '%s' "$password" | openssl passwd -6 -stdin)
-  nixos-install --root "$MOUNT_POINT" --flake "$checkout#$SELECTED_HOST" --no-root-passwd
+  # Force filesystem-path semantics so machine-local generated files remain
+  # visible even though Git marks them skip-worktree for a clean checkout.
+  nixos-install --root "$MOUNT_POINT" --flake "path:$checkout#$SELECTED_HOST" --no-root-passwd
   printf '%s:%s\n' "$USERNAME" "$hash" | nixos-enter --root "$MOUNT_POINT" -- chpasswd -e
   nixos-enter --root "$MOUNT_POINT" -- chown -R "$USERNAME:users" "/home/$USERNAME/.wintix"
 }
