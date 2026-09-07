@@ -19,4 +19,7 @@ if ! NIXOS_REBUILD=$(command -v nixos-rebuild); then
   exit 1
 fi
 
-exec sudo "$NIXOS_REBUILD" switch --flake "$WINTIX_PATH#$WINTIX_CONFIGURATION"
+# The checkout intentionally marks machine-local generated modules
+# skip-worktree. Use an explicit path flake so Nix reads their working-tree
+# contents rather than the clean Git index stubs.
+exec sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATION"
