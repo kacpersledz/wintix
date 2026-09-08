@@ -146,6 +146,86 @@
       };
 
       checks.${system} = {
+        brave-config =
+          let
+            desktopConfig = self.nixosConfigurations.desktop.config;
+            workConfig = self.nixosConfigurations.work-laptop.config;
+            defaultPolicy = pkgs.writeText "brave-default-policy.json" (
+              desktopConfig.environment.etc."brave/policies/managed/default.json".text
+            );
+            extraPolicy = pkgs.writeText "brave-extra-policy.json" (
+              desktopConfig.environment.etc."brave/policies/managed/extra.json".text
+            );
+            expectedExtensionIds = [
+              "mlomiejdfkolichcflejclcbmpeaniij"
+              "mnjggcdmjocbbbhaepdhchncahnbgone"
+              "cimiefiiaegbelhefglklhhakcgmhkai"
+              "nngceckbapebfimnlniiiahkandclblb"
+            ];
+            januaryHome = desktopConfig.home-manager.users.january;
+            ksledzHome = workConfig.home-manager.users.ksledz;
+            januaryActivation = januaryHome.home.activationPackage;
+            ksledzActivation = ksledzHome.home.activationPackage;
+            extensionIds = home: map (extension: extension.id) home.programs.brave.extensions;
+            expectedMimeApps = {
+              "x-scheme-handler/http" = [ "com.brave.Browser.desktop" ];
+              "x-scheme-handler/https" = [ "com.brave.Browser.desktop" ];
+              "text/html" = [ "com.brave.Browser.desktop" ];
+            };
+          in
+          assert januaryHome.programs.brave.enable;
+          assert ksledzHome.programs.brave.enable;
+          assert extensionIds januaryHome == expectedExtensionIds;
+          assert extensionIds ksledzHome == expectedExtensionIds;
+          assert januaryHome.xdg.mimeApps.defaultApplications == expectedMimeApps;
+          assert ksledzHome.xdg.mimeApps.defaultApplications == expectedMimeApps;
+          assert desktopConfig.programs.chromium.enablePlasmaBrowserIntegration;
+          assert !(builtins.elem pkgs.brave desktopConfig.environment.systemPackages);
+          pkgs.runCommand "wintix-brave-config-test" {
+            nativeBuildInputs = with pkgs; [ jq ];
+          } ''
+            jq -e '
+              .DefaultSearchProviderEnabled == true and
+              .DefaultSearchProviderSearchURL == "https://www.google.com/search?q={searchTerms}" and
+              length == 2
+            ' ${defaultPolicy} >/dev/null
+            jq -e '
+              .ShowHomeButton == true and
+              .ShowFullUrlsInAddressBar == true and
+              .DefaultSearchProviderName == "Google" and
+              .SpellcheckLanguage == ["en-US", "pl"] and
+              .BraveRewardsDisabled == true and
+              .BraveWalletDisabled == true and
+              .BraveAIChatEnabled == false and
+              length == 7
+            ' ${extraPolicy} >/dev/null
+            test -e ${desktopConfig.environment.etc."chromium/native-messaging-hosts/org.kde.plasma.browser_integration.json".source}
+            test -e ${januaryHome.programs.brave.finalPackage}/share/applications/com.brave.Browser.desktop
+            for generation in ${januaryActivation} ${ksledzActivation}; do
+              for extension in ${builtins.concatStringsSep " " expectedExtensionIds}; do
+                declaration="$generation/home-files/.config/BraveSoftware/Brave-Browser/External Extensions/$extension.json"
+                jq -e '.external_update_url == "https://clients2.google.com/service/update2/crx"' "$declaration" >/dev/null
+              done
+              grep -q '^text/html=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
+              grep -q '^x-scheme-handler/http=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
+              grep -q '^x-scheme-handler/https=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
+            done
+            touch "$out"
+          '';
+
+        brave-reconcile = pkgs.runCommand "wintix-brave-reconcile-test" {
+          nativeBuildInputs = with pkgs; [
+            bash
+            coreutils
+            findutils
+            gnugrep
+            jq
+          ];
+        } ''
+          bash ${./tests/brave-reconcile-test.sh} ${./.}
+          touch "$out"
+        '';
+
         architecture = pkgs.runCommand "wintix-architecture-test" {
           nativeBuildInputs = with pkgs; [ bash coreutils findutils gnugrep ripgrep ];
         } ''

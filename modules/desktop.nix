@@ -39,14 +39,24 @@ in
 
   programs.firefox.enable = true;
 
-  environment.systemPackages = with pkgs; [
-    brave
-  ];
-
   hardware.bluetooth.enable = true;
 
   programs.chromium = {
     enable = true;
     enablePlasmaBrowserIntegration = true;
+    defaultSearchProviderEnabled = true;
+    defaultSearchProviderSearchURL = "https://www.google.com/search?q={searchTerms}";
+    extraOpts = {
+      ShowHomeButton = true;
+      ShowFullUrlsInAddressBar = true;
+      DefaultSearchProviderName = "Google";
+      SpellcheckLanguage = [
+        "en-US"
+        "pl"
+      ];
+      BraveRewardsDisabled = true;
+      BraveWalletDisabled = true;
+      BraveAIChatEnabled = false;
+    };
   };
 }
