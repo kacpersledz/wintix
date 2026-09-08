@@ -152,6 +152,12 @@
           bash ${./tests}/architecture-test.sh ${./.}
           touch "$out"
         '';
+        plasma-panel = pkgs.runCommand "wintix-plasma-panel-test" {
+          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep ripgrep ];
+        } ''
+          bash ${./tests}/plasma-panel-test.sh ${./.}
+          touch "$out"
+        '';
         installer = pkgs.runCommand "wintix-installer-test" {
           nativeBuildInputs = with pkgs; [
             bash
