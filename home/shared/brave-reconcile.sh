@@ -9,9 +9,10 @@ die() {
   exit 1
 }
 
-check_not_running() {
+warn_if_running() {
   if [[ -e "$data_dir/SingletonLock" || -L "$data_dir/SingletonLock" ]]; then
-    die "Brave appears to be running for $data_dir. Close Brave completely, then rerun the rebuild."
+    printf '%s\n' \
+      "wintix-brave-reconcile: warning: Brave appears to be running; continuing reconciliation, but Brave may overwrite these preference changes from its in-memory state when it exits" >&2
   fi
 }
 
@@ -54,9 +55,10 @@ atomic_merge() {
   fi
 }
 
-check_not_running
+warn_if_running
 
 profiles=()
+# Validate every existing input before the first write.
 if [[ -e "$local_state" ]]; then
   validate_object "$local_state"
   while IFS= read -r -d '' profile; do
@@ -80,10 +82,6 @@ if [[ -e "$local_state" ]]; then
     profiles+=("$preferences")
   done < <(jq -j '(.profile.info_cache // {}) | keys[] | ., "\u0000"' "$local_state")
 fi
-
-# Validate all inputs before the first write, then recheck the browser lock to
-# minimize the race between validation and atomic replacement.
-check_not_running
 
 atomic_merge "$local_state" '.brave.widevine_opted_in = true'
 

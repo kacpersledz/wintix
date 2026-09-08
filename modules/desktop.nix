@@ -46,6 +46,7 @@ in
     enablePlasmaBrowserIntegration = true;
     defaultSearchProviderEnabled = true;
     defaultSearchProviderSearchURL = "https://www.google.com/search?q={searchTerms}";
+    defaultSearchProviderSuggestURL = "{google:baseURL}complete/search?output=chrome&q={searchTerms}";
     extraOpts = {
       ShowHomeButton = true;
       ShowFullUrlsInAddressBar = true;

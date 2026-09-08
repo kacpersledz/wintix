@@ -187,7 +187,8 @@
             jq -e '
               .DefaultSearchProviderEnabled == true and
               .DefaultSearchProviderSearchURL == "https://www.google.com/search?q={searchTerms}" and
-              length == 2
+              .DefaultSearchProviderSuggestURL == "{google:baseURL}complete/search?output=chrome&q={searchTerms}" and
+              length == 3
             ' ${defaultPolicy} >/dev/null
             jq -e '
               .ShowHomeButton == true and

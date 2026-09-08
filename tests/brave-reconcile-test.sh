@@ -94,16 +94,25 @@ assert_owned_preferences "$unsafe/Good/Preferences"
 [[ "$outside_hash" == "$(sha256sum "$outside/Preferences")" ]] || fail 'unsafe profile escaped data root'
 grep -q 'ignoring unsafe profile path' "$unsafe/stderr"
 
-# A Chromium singleton lock causes a clear failure without mutation.
+# A Chromium singleton lock warns but does not prevent targeted reconciliation.
 locked="$work/locked"
 write_state "$locked" Default
+jq '.unrelated = {keep: "state"}' "$locked/Local State" > "$locked/state.tmp"
+mv "$locked/state.tmp" "$locked/Local State"
 mkdir -p "$locked/Default"
-printf '%s\n' '{}' > "$locked/Default/Preferences"
+printf '%s\n' '{"unrelated":{"keep":"preferences"}}' > "$locked/Default/Preferences"
 ln -s 'test-host-123' "$locked/SingletonLock"
-locked_hash=$(sha256sum "$locked/Local State")
-if bash "$script" "$locked" > "$locked/stdout" 2> "$locked/stderr"; then fail 'running-browser lock unexpectedly succeeded'; fi
-[[ "$locked_hash" == "$(sha256sum "$locked/Local State")" ]] || fail 'locked Local State changed'
-grep -q 'Close Brave completely' "$locked/stderr"
+lock_target=$(readlink "$locked/SingletonLock")
+lock_fingerprint=$(stat -c '%d:%i:%f:%s:%Y:%Z:%N' "$locked/SingletonLock")
+bash "$script" "$locked" > "$locked/stdout" 2> "$locked/stderr"
+grep -q 'warning: Brave appears to be running' "$locked/stderr"
+grep -q 'may overwrite these preference changes' "$locked/stderr"
+jq -e '.unrelated.keep == "state" and .brave.widevine_opted_in == true' "$locked/Local State" >/dev/null
+assert_owned_preferences "$locked/Default/Preferences"
+jq -e '.unrelated.keep == "preferences"' "$locked/Default/Preferences" >/dev/null
+[[ -L "$locked/SingletonLock" ]] || fail 'singleton lock was removed or replaced'
+[[ $(readlink "$locked/SingletonLock") == "$lock_target" ]] || fail 'singleton lock target changed'
+[[ $(stat -c '%d:%i:%f:%s:%Y:%Z:%N' "$locked/SingletonLock") == "$lock_fingerprint" ]] || fail 'singleton lock metadata changed'
 
 # Invalid profile metadata is rejected without replacing Local State.
 invalid_metadata="$work/invalid-metadata"
