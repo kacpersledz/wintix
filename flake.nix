@@ -255,7 +255,7 @@
         work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {
           nativeBuildInputs = with pkgs; [ bash coreutils diffutils findutils git gnugrep ];
         } ''
-          bash ${./commands/tests/wintix-work-bootstrap-test.sh}
+          bash ${./commands}/tests/wintix-work-bootstrap-test.sh
           touch "$out"
         '';
         secrets-bootstrap = pkgs.runCommand "wintix-secrets-bootstrap-test" {
@@ -265,7 +265,7 @@
             gnugrep
           ];
         } ''
-          bash ${./commands/tests/wintix-secrets-bootstrap-test.sh}
+          bash ${./commands}/tests/wintix-secrets-bootstrap-test.sh
           touch "$out"
         '';
 
@@ -278,7 +278,7 @@
             gnused
           ];
         } ''
-          bash ${./commands/tests/wintix-secrets-enroll-test.sh}
+          bash ${./commands}/tests/wintix-secrets-enroll-test.sh
           touch "$out"
         '';
 
@@ -293,7 +293,7 @@
             sops
           ];
         } ''
-          bash ${./commands/tests/wintix-secrets-enroll-sops-test.sh}
+          bash ${./commands}/tests/wintix-secrets-enroll-sops-test.sh
           touch "$out"
         '';
       };
