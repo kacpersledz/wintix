@@ -54,7 +54,15 @@ for (let panelIndex = 0; panelIndex < allPanels.length; ++panelIndex) {
     const oldShortcut = oldWidget.globalShortcut;
     const replacement = panel.addWidget(taskManager);
 
-    if (!replacement || replacement.type !== taskManager) {
+    if (!replacement) {
+        print("Wintix: Task Manager migration skipped: replacement could not be created");
+        continue;
+    }
+
+    if (replacement.type !== taskManager) {
+        const unexpectedType = replacement.type;
+        replacement.remove();
+        print("Wintix: Task Manager migration skipped: unexpected replacement type " + unexpectedType);
         continue;
     }
 
@@ -64,6 +72,16 @@ for (let panelIndex = 0; panelIndex < allPanels.length; ++panelIndex) {
         replacement.globalShortcut = oldShortcut;
         configureTaskManager(replacement);
         replacement.index = oldIndex;
+
+        // Plasma 6.6 only logs when reordering fails, so verify the setter's
+        // result before deleting the original widget.
+        const actualIndex = replacement.index;
+        if (actualIndex !== oldIndex) {
+            replacement.remove();
+            print("Wintix: Task Manager migration skipped: could not preserve panel index " + oldIndex);
+            continue;
+        }
+
         oldWidget.remove();
     } catch (error) {
         // Never leave a duplicate behind when migration cannot complete.
