@@ -2,6 +2,7 @@
 {
   imports = [
     ./work-apps.nix
+    ../shared/brave.nix
     ../shared/development.nix
     ../shared/plasma.nix
     ../shared/zsh.nix
