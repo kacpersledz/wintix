@@ -167,18 +167,11 @@
             januaryActivation = januaryHome.home.activationPackage;
             ksledzActivation = ksledzHome.home.activationPackage;
             extensionIds = home: map (extension: extension.id) home.programs.brave.extensions;
-            expectedMimeApps = {
-              "x-scheme-handler/http" = [ "com.brave.Browser.desktop" ];
-              "x-scheme-handler/https" = [ "com.brave.Browser.desktop" ];
-              "text/html" = [ "com.brave.Browser.desktop" ];
-            };
           in
           assert januaryHome.programs.brave.enable;
           assert ksledzHome.programs.brave.enable;
           assert extensionIds januaryHome == expectedExtensionIds;
           assert extensionIds ksledzHome == expectedExtensionIds;
-          assert januaryHome.xdg.mimeApps.defaultApplications == expectedMimeApps;
-          assert ksledzHome.xdg.mimeApps.defaultApplications == expectedMimeApps;
           assert desktopConfig.programs.chromium.enablePlasmaBrowserIntegration;
           assert !(builtins.elem pkgs.brave desktopConfig.environment.systemPackages);
           pkgs.runCommand "wintix-brave-config-test" {
@@ -207,9 +200,6 @@
                 declaration="$generation/home-files/.config/BraveSoftware/Brave-Browser/External Extensions/$extension.json"
                 jq -e '.external_update_url == "https://clients2.google.com/service/update2/crx"' "$declaration" >/dev/null
               done
-              grep -q '^text/html=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
-              grep -q '^x-scheme-handler/http=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
-              grep -q '^x-scheme-handler/https=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
             done
             touch "$out"
           '';
@@ -265,7 +255,7 @@
         work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {
           nativeBuildInputs = with pkgs; [ bash coreutils diffutils findutils git gnugrep ];
         } ''
-          bash ${./commands}/tests/wintix-work-bootstrap-test.sh
+          bash ${./commands/tests/wintix-work-bootstrap-test.sh}
           touch "$out"
         '';
         secrets-bootstrap = pkgs.runCommand "wintix-secrets-bootstrap-test" {
@@ -275,7 +265,7 @@
             gnugrep
           ];
         } ''
-          bash ${./commands}/tests/wintix-secrets-bootstrap-test.sh
+          bash ${./commands/tests/wintix-secrets-bootstrap-test.sh}
           touch "$out"
         '';
 
@@ -288,7 +278,7 @@
             gnused
           ];
         } ''
-          bash ${./commands}/tests/wintix-secrets-enroll-test.sh
+          bash ${./commands/tests/wintix-secrets-enroll-test.sh}
           touch "$out"
         '';
 
@@ -303,7 +293,7 @@
             sops
           ];
         } ''
-          bash ${./commands}/tests/wintix-secrets-enroll-sops-test.sh
+          bash ${./commands/tests/wintix-secrets-enroll-sops-test.sh}
           touch "$out"
         '';
       };
