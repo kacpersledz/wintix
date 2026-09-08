@@ -26,15 +26,6 @@ in
     ];
   };
 
-  xdg.mimeApps = {
-    enable = true;
-    defaultApplications = {
-      "x-scheme-handler/http" = [ "com.brave.Browser.desktop" ];
-      "x-scheme-handler/https" = [ "com.brave.Browser.desktop" ];
-      "text/html" = [ "com.brave.Browser.desktop" ];
-    };
-  };
-
   home.activation.braveReconcile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     run ${braveReconcile}/bin/wintix-brave-reconcile
   '';
