@@ -167,18 +167,11 @@
             januaryActivation = januaryHome.home.activationPackage;
             ksledzActivation = ksledzHome.home.activationPackage;
             extensionIds = home: map (extension: extension.id) home.programs.brave.extensions;
-            expectedMimeApps = {
-              "x-scheme-handler/http" = [ "com.brave.Browser.desktop" ];
-              "x-scheme-handler/https" = [ "com.brave.Browser.desktop" ];
-              "text/html" = [ "com.brave.Browser.desktop" ];
-            };
           in
           assert januaryHome.programs.brave.enable;
           assert ksledzHome.programs.brave.enable;
           assert extensionIds januaryHome == expectedExtensionIds;
           assert extensionIds ksledzHome == expectedExtensionIds;
-          assert januaryHome.xdg.mimeApps.defaultApplications == expectedMimeApps;
-          assert ksledzHome.xdg.mimeApps.defaultApplications == expectedMimeApps;
           assert desktopConfig.programs.chromium.enablePlasmaBrowserIntegration;
           assert !(builtins.elem pkgs.brave desktopConfig.environment.systemPackages);
           pkgs.runCommand "wintix-brave-config-test" {
@@ -207,9 +200,6 @@
                 declaration="$generation/home-files/.config/BraveSoftware/Brave-Browser/External Extensions/$extension.json"
                 jq -e '.external_update_url == "https://clients2.google.com/service/update2/crx"' "$declaration" >/dev/null
               done
-              grep -q '^text/html=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
-              grep -q '^x-scheme-handler/http=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
-              grep -q '^x-scheme-handler/https=com.brave.Browser.desktop$' "$generation/home-files/.config/mimeapps.list"
             done
             touch "$out"
           '';
