@@ -302,11 +302,15 @@ write_storage_config "$storage_checkout"
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == $'# generated storage stub\n{ ... }:\n{ }' ]]
 FAKE_DEFAULT_DEVICE=/dev/disk/by-partuuid/other-part
 export FAKE_DEFAULT_DEVICE
+original_umask=$(umask)
+umask 0027
+caller_umask=$(umask)
 write_storage_config "$storage_checkout"
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == *'device = "/dev/disk/by-partuuid/part-uuid"'* ]]
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == *'efiDevice = "/dev/disk/by-uuid/esp-uuid"'* ]]
-# The generated-file write does not leak its restrictive umask into later Git work.
-[[ $(umask) == 0022 ]]
+# The generated-file write preserves the caller's umask instead of leaking 0077.
+[[ $(umask) == "$caller_umask" ]]
+umask "$original_umask"
 git -C "$storage_checkout" init --quiet --initial-branch=master
 git -C "$storage_checkout" config user.name test
 git -C "$storage_checkout" config user.email test@example.invalid
