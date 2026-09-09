@@ -11,7 +11,7 @@
   nix.gc = {
     automatic = true;
     dates = "weekly";
-    options = "--delete-older-than 8w";
+    options = "--delete-older-than 56d";
   };
 
   networking.networkmanager.enable = true;
