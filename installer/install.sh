@@ -28,6 +28,7 @@ main() {
   install_system "$checkout" "$USER_PASSWORD"
   unset USER_PASSWORD
   report_checkout_status "$checkout"
+  hand_off_checkout
   gum confirm "Reboot now?" && reboot
 }
 
