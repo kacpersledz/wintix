@@ -1,91 +1,164 @@
 // Targeted for the Plasma 6.6 scripting API pinned by Wintix.
 const iconsOnlyTaskManager = "org.kde.plasma.icontasks";
 const taskManager = "org.kde.plasma.taskmanager";
+const canonicalWidgetTypes = [
+    "org.kde.plasma.kickoff",
+    "org.kde.plasma.pager",
+    taskManager,
+    "org.kde.plasma.marginsseparator",
+    "org.kde.plasma.systemtray",
+    "org.kde.plasma.digitalclock",
+    "org.kde.plasma.showdesktop",
+];
+const defaultWidgetTypes = canonicalWidgetTypes.map(function (type) {
+    return type === taskManager ? iconsOnlyTaskManager : type;
+});
 const launchers = [
     "applications:brave-browser.desktop",
     "applications:org.kde.dolphin.desktop",
     "applications:org.kde.konsole.desktop",
 ];
 
-function copyConfigGroup(source, target, group) {
-    source.currentConfigGroup = group;
-    target.currentConfigGroup = group;
-
-    const keys = source.configKeys.slice();
-    for (let i = 0; i < keys.length; ++i) {
-        target.writeConfig(keys[i], source.readConfig(keys[i]));
+function arraysEqual(left, right) {
+    if (left.length !== right.length) {
+        return false;
     }
-
-    const groups = source.configGroups.slice();
-    for (let i = 0; i < groups.length; ++i) {
-        copyConfigGroup(source, target, group.concat([groups[i]]));
+    for (let i = 0; i < left.length; ++i) {
+        if (String(left[i]) !== String(right[i])) {
+            return false;
+        }
     }
+    return true;
+}
+
+function configValueEquals(actual, expected) {
+    if (Array.isArray(expected)) {
+        return Array.isArray(actual)
+            ? arraysEqual(actual, expected)
+            : String(actual) === expected.join(",");
+    }
+    return String(actual) === String(expected);
 }
 
 function configureTaskManager(widget) {
+    const desired = {
+        groupingStrategy: 0,
+        separateLaunchers: false,
+        interactiveMute: false,
+        launchers: launchers,
+    };
+    let changed = false;
+
     widget.currentConfigGroup = ["General"];
-    widget.writeConfig("groupingStrategy", 0);
-    widget.writeConfig("separateLaunchers", false);
-    widget.writeConfig("interactiveMute", false);
-    widget.writeConfig("launchers", launchers);
-    widget.reloadConfig();
+    const keys = Object.keys(desired);
+    for (let i = 0; i < keys.length; ++i) {
+        const key = keys[i];
+        if (!configValueEquals(widget.readConfig(key, ""), desired[key])) {
+            widget.writeConfig(key, desired[key]);
+            changed = true;
+        }
+    }
+    if (changed) {
+        widget.reloadConfig();
+    }
+}
+
+function widgetTypes(widgets) {
+    return widgets.map(function (widget) { return widget.type; });
+}
+
+function discoverCanonicalWidgets(widgets) {
+    if (widgets.length !== canonicalWidgetTypes.length) {
+        return null;
+    }
+
+    const byType = {};
+    for (let i = 0; i < widgets.length; ++i) {
+        const type = widgets[i].type;
+        if (canonicalWidgetTypes.indexOf(type) === -1 || byType[type]) {
+            return null;
+        }
+        byType[type] = widgets[i];
+    }
+
+    return canonicalWidgetTypes.map(function (type) { return byType[type]; });
+}
+
+function appletOrder(widgets) {
+    return widgets.map(function (widget) { return String(widget.id); }).join(";");
 }
 
 const allPanels = panels();
 for (let panelIndex = 0; panelIndex < allPanels.length; ++panelIndex) {
     const panel = allPanels[panelIndex];
-    const normalWidgets = panel.widgets(taskManager);
-    const iconsOnlyWidgets = panel.widgets(iconsOnlyTaskManager);
 
-    // A single existing normal Task Manager is unambiguous and safe to manage.
-    if (normalWidgets.length === 1 && iconsOnlyWidgets.length === 0) {
-        configureTaskManager(normalWidgets[0]);
+    // A fresh panel can be exposed before its screen and complete default
+    // layout are ready. Defer structural work to a later login then.
+    if (panel.location !== "bottom" || Number(panel.screen) < 0) {
         continue;
     }
 
-    // Only convert the default, unambiguous one-widget shape. If a panel has a
-    // custom mix of task managers, leave it alone instead of guessing.
-    if (normalWidgets.length !== 0 || iconsOnlyWidgets.length !== 1) {
-        continue;
-    }
+    const widgets = panel.widgets();
+    const types = widgetTypes(widgets);
 
-    const oldWidget = iconsOnlyWidgets[0];
-    const oldIndex = oldWidget.index;
-    const oldShortcut = oldWidget.globalShortcut;
-    const replacement = panel.addWidget(taskManager);
-
-    if (!replacement) {
-        print("Wintix: Task Manager migration skipped: replacement could not be created");
-        continue;
-    }
-
-    if (replacement.type !== taskManager) {
-        const unexpectedType = replacement.type;
-        replacement.remove();
-        print("Wintix: Task Manager migration skipped: unexpected replacement type " + unexpectedType);
-        continue;
-    }
-
-    try {
-        // Preserve user-owned Task Manager options while changing widget type.
-        copyConfigGroup(oldWidget, replacement, []);
-        replacement.globalShortcut = oldShortcut;
-        configureTaskManager(replacement);
-        replacement.index = oldIndex;
-
-        // Plasma 6.6 only logs when reordering fails, so verify the setter's
-        // result before deleting the original widget.
-        const actualIndex = replacement.index;
-        if (actualIndex !== oldIndex) {
-            replacement.remove();
-            print("Wintix: Task Manager migration skipped: could not preserve panel index " + oldIndex);
+    if (arraysEqual(types, defaultWidgetTypes)) {
+        const oldWidget = widgets[2];
+        const replacement = panel.addWidget(taskManager);
+        if (!replacement || replacement.type !== taskManager) {
+            if (replacement) {
+                replacement.remove();
+            }
+            print("Wintix: Task Manager migration skipped: replacement could not be created safely");
             continue;
         }
 
-        oldWidget.remove();
-    } catch (error) {
-        // Never leave a duplicate behind when migration cannot complete.
-        replacement.remove();
-        print("Wintix: Task Manager migration skipped: " + error);
+        const desiredWidgets = widgets.slice();
+        desiredWidgets[2] = replacement;
+        const desiredOrder = appletOrder(desiredWidgets);
+
+        try {
+            configureTaskManager(replacement);
+        } catch (error) {
+            replacement.remove();
+            print("Wintix: Task Manager migration skipped: replacement configuration failed: " + error);
+            continue;
+        }
+
+        try {
+            panel.currentConfigGroup = ["General"];
+            panel.writeConfig("AppletOrder", desiredOrder);
+            if (String(panel.readConfig("AppletOrder", "")) !== desiredOrder) {
+                replacement.remove();
+                print("Wintix: Task Manager migration skipped: canonical panel order was not accepted");
+                continue;
+            }
+        } catch (error) {
+            replacement.remove();
+            print("Wintix: Task Manager migration skipped: canonical panel order failed: " + error);
+            continue;
+        }
+
+        try {
+            oldWidget.remove();
+        } catch (error) {
+            // AppletOrder already selects the configured replacement. Keep it
+            // rather than deleting the widget now occupying the canonical slot.
+            print("Wintix: old Icons-Only Task Manager could not be removed: " + error);
+        }
+        continue;
     }
+
+    // Canonical Wintix widgets may have the order left by the old migration.
+    // Reorder this exact, unambiguous shape; leave every other shape untouched.
+    const canonicalWidgets = discoverCanonicalWidgets(widgets);
+    if (!canonicalWidgets) {
+        continue;
+    }
+
+    const desiredOrder = appletOrder(canonicalWidgets);
+    panel.currentConfigGroup = ["General"];
+    if (String(panel.readConfig("AppletOrder", "")) !== desiredOrder) {
+        panel.writeConfig("AppletOrder", desiredOrder);
+    }
+    configureTaskManager(canonicalWidgets[2]);
 }

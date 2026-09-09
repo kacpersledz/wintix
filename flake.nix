@@ -224,7 +224,7 @@
           touch "$out"
         '';
         plasma-panel = pkgs.runCommand "wintix-plasma-panel-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep ripgrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep nodejs ripgrep ];
         } ''
           bash ${./tests}/plasma-panel-test.sh ${./.}
           touch "$out"
