@@ -56,5 +56,8 @@ install_system() {
   # visible even though Git marks them skip-worktree for a clean checkout.
   nixos-install --root "$MOUNT_POINT" --flake "path:$checkout#$SELECTED_HOST" --no-root-passwd
   printf '%s:%s\n' "$USERNAME" "$hash" | nixos-enter --root "$MOUNT_POINT" -- chpasswd -e
+}
+
+hand_off_checkout() {
   nixos-enter --root "$MOUNT_POINT" -- chown -R "$USERNAME:users" "/home/$USERNAME/.wintix"
 }

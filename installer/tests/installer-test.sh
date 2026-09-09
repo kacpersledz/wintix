@@ -302,9 +302,15 @@ write_storage_config "$storage_checkout"
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == $'# generated storage stub\n{ ... }:\n{ }' ]]
 FAKE_DEFAULT_DEVICE=/dev/disk/by-partuuid/other-part
 export FAKE_DEFAULT_DEVICE
+original_umask=$(umask)
+umask 0027
+caller_umask=$(umask)
 write_storage_config "$storage_checkout"
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == *'device = "/dev/disk/by-partuuid/part-uuid"'* ]]
 [[ $(<"$storage_checkout/modules/storage-generated.nix") == *'efiDevice = "/dev/disk/by-uuid/esp-uuid"'* ]]
+# The generated-file write preserves the caller's umask instead of leaking 0077.
+[[ $(umask) == "$caller_umask" ]]
+umask "$original_umask"
 git -C "$storage_checkout" init --quiet --initial-branch=master
 git -C "$storage_checkout" config user.name test
 git -C "$storage_checkout" config user.email test@example.invalid
@@ -352,6 +358,19 @@ for generated in storage hardware machine; do
   git -C "$checkout" ls-files -v "modules/$generated-generated.nix" | grep -q '^S '
 done
 [[ -z $(git -C "$checkout" status --porcelain) ]]
+
+# Root-side Git inspection happens before the final checkout ownership handoff,
+# and no checkout-touching installer operation follows that handoff.
+main_body=$(sed -n '/^main() {/,/^}/p' "$SCRIPT_DIR/install.sh")
+status_line=$(grep -n 'report_checkout_status "$checkout"' <<< "$main_body" | cut -d: -f1)
+handoff_line=$(grep -n '^  hand_off_checkout$' <<< "$main_body" | cut -d: -f1)
+reboot_line=$(grep -n 'gum confirm "Reboot now?"' <<< "$main_body" | cut -d: -f1)
+[[ $status_line -lt $handoff_line && $handoff_line -lt $reboot_line ]]
+[[ $(tail -n "+$((handoff_line + 1))" <<< "$main_body") != *'$checkout'* ]]
+install_body=$(sed -n '/^install_system() {/,/^}/p' "$SCRIPT_DIR/install-system.sh")
+[[ $install_body != *'chown -R'* ]]
+handoff_body=$(sed -n '/^hand_off_checkout() {/,/^}/p' "$SCRIPT_DIR/install-system.sh")
+[[ $handoff_body == *'chown -R "$USERNAME:users" "/home/$USERNAME/.wintix"'* ]]
 
 # Bootstrap cloning is anonymous; only the installed editable checkout's
 # origin is changed to SSH. The flake bootstrap ref remains independent.

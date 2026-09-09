@@ -83,9 +83,11 @@ write_storage_config() {
     return
   fi
 
-  umask 077
   # Installed systems always use the non-destructive selected-partition module:
   # Disko's whole-disk path is provisioning-only, while the durable host config
   # must point at the encrypted root partition's stable PARTUUID.
-  printf '{ ... }:\n{\n  wintix.storage = {\n    enable = true;\n    mode = "selected-partition";\n    device = "%s";\n    efiDevice = "%s";\n  };\n}\n' "$desired_device" "$desired_efi" > "$checkout/modules/storage-generated.nix"
+  (
+    umask 077
+    printf '{ ... }:\n{\n  wintix.storage = {\n    enable = true;\n    mode = "selected-partition";\n    device = "%s";\n    efiDevice = "%s";\n  };\n}\n' "$desired_device" "$desired_efi" > "$checkout/modules/storage-generated.nix"
+  )
 }
