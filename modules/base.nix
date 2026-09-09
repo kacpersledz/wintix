@@ -6,6 +6,14 @@
     "flakes"
   ];
 
+  # Keep old generations and reclaimable store paths for roughly eight weeks;
+  # bootable generation retention is handled separately by systemd-boot.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 8w";
+  };
+
   networking.networkmanager.enable = true;
 
   time.timeZone = "Europe/Warsaw";
