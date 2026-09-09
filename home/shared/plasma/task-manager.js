@@ -10,18 +10,6 @@ const canonicalWidgetTypes = [
     "org.kde.plasma.digitalclock",
     "org.kde.plasma.showdesktop",
 ];
-const defaultWidgetTypes = canonicalWidgetTypes.map(function (type) {
-    return type === taskManager ? iconsOnlyTaskManager : type;
-});
-const brokenWidgetTypes = [
-    canonicalWidgetTypes[0],
-    canonicalWidgetTypes[1],
-    canonicalWidgetTypes[3],
-    canonicalWidgetTypes[4],
-    canonicalWidgetTypes[5],
-    canonicalWidgetTypes[6],
-    canonicalWidgetTypes[2],
-];
 const launchers = [
     "applications:brave-browser.desktop",
     "applications:org.kde.dolphin.desktop",
@@ -72,20 +60,20 @@ function configureTaskManager(widget) {
     }
 }
 
-function readOrderedWidgets(panel) {
+function readPanelState(panel) {
     if (typeof panel.widgetById !== "function") {
         return null;
     }
 
     panel.currentConfigGroup = ["General"];
-    const rawOrder = panel.readConfig("AppletOrder", "");
-    if (typeof rawOrder !== "string" || rawOrder.length === 0) {
+    const order = panel.readConfig("AppletOrder", "");
+    if (typeof order !== "string" || order.length === 0) {
         return null;
     }
 
-    const ids = rawOrder.split(";");
+    const ids = order.split(";");
     const seenIds = {};
-    const widgets = [];
+    const orderedWidgets = [];
     for (let i = 0; i < ids.length; ++i) {
         const idText = ids[i];
         if (!/^[1-9][0-9]*$/.test(idText) || seenIds[idText]) {
@@ -96,134 +84,151 @@ function readOrderedWidgets(panel) {
             return null;
         }
         seenIds[idText] = true;
-        widgets.push(widget);
+        orderedWidgets.push(widget);
     }
 
-    // AppletOrder must describe the complete panel, not a subset that happens
-    // to resemble a supported layout. Enumeration order is irrelevant here.
-    const allWidgets = panel.widgets();
-    if (allWidgets.length !== widgets.length) {
-        return null;
-    }
-    const enumeratedIds = {};
-    for (let i = 0; i < allWidgets.length; ++i) {
-        const idText = String(allWidgets[i].id);
-        if (!seenIds[idText] || enumeratedIds[idText]) {
+    // Append active widgets missing from AppletOrder so interrupted previous
+    // convergence can be repaired. Their enumeration order is not used for
+    // visual ordering; the canonical type list below defines that order.
+    const widgets = orderedWidgets.slice();
+    const activeWidgets = panel.widgets();
+    for (let i = 0; i < activeWidgets.length; ++i) {
+        const idText = String(activeWidgets[i].id);
+        if (!/^[1-9][0-9]*$/.test(idText)) {
             return null;
         }
-        enumeratedIds[idText] = true;
+        if (!seenIds[idText]) {
+            seenIds[idText] = true;
+            widgets.push(activeWidgets[i]);
+        }
     }
 
-    return {
-        order: rawOrder,
-        widgets: widgets,
-        types: widgets.map(function (widget) { return widget.type; }),
-    };
+    return { order: order, widgets: widgets };
 }
 
-function appletOrder(widgets) {
+function widgetOrder(widgets) {
     return widgets.map(function (widget) { return String(widget.id); }).join(";");
+}
+
+function rollbackAdditions(panel, originalOrder, additions, message) {
+    try {
+        panel.writeConfig("AppletOrder", originalOrder);
+        if (String(panel.readConfig("AppletOrder", "")) !== originalOrder) {
+            print("Wintix: panel convergence rollback failed to restore original order: " + message);
+            return;
+        }
+    } catch (error) {
+        print("Wintix: panel convergence rollback failed to restore original order: " + error);
+        return;
+    }
+
+    for (let i = additions.length - 1; i >= 0; --i) {
+        try {
+            additions[i].remove();
+        } catch (error) {
+            print("Wintix: panel convergence rollback could not remove added widget: " + error);
+        }
+    }
+    print("Wintix: panel convergence failed and was rolled back: " + message);
 }
 
 const allPanels = panels();
 for (let panelIndex = 0; panelIndex < allPanels.length; ++panelIndex) {
     const panel = allPanels[panelIndex];
-
-    // A fresh panel can be exposed before its screen and complete default
-    // layout are ready. Defer structural work to a later login then.
     if (panel.location !== "bottom" || Number(panel.screen) < 0) {
         continue;
     }
 
-    const ordered = readOrderedWidgets(panel);
-    if (!ordered) {
+    const state = readPanelState(panel);
+    if (!state) {
         continue;
     }
 
-    if (arraysEqual(ordered.types, defaultWidgetTypes)) {
-        const originalOrder = ordered.order;
-        const oldWidget = ordered.widgets[2];
-        const replacement = panel.addWidget(taskManager);
-        if (!replacement || replacement.type !== taskManager) {
-            if (replacement) {
-                replacement.remove();
+    const originalOrder = state.order;
+    const canonicalWidgets = [];
+    const additions = [];
+    const removals = [];
+
+    for (let typeIndex = 0; typeIndex < canonicalWidgetTypes.length; ++typeIndex) {
+        const type = canonicalWidgetTypes[typeIndex];
+        const matches = state.widgets.filter(function (widget) { return widget.type === type; });
+        if (matches.length > 0) {
+            canonicalWidgets.push(matches[0]);
+            removals.push.apply(removals, matches.slice(1));
+            continue;
+        }
+
+        const added = panel.addWidget(type);
+        if (!added || added.type !== type) {
+            if (added) {
+                additions.push(added);
             }
-            print("Wintix: Task Manager migration skipped: replacement could not be created safely");
-            continue;
+            rollbackAdditions(panel, originalOrder, additions, "required widget could not be created safely");
+            canonicalWidgets.length = 0;
+            break;
         }
+        canonicalWidgets.push(added);
+        additions.push(added);
+    }
+    if (canonicalWidgets.length !== canonicalWidgetTypes.length) {
+        continue;
+    }
 
-        const desiredWidgets = ordered.widgets.slice();
-        desiredWidgets[2] = replacement;
-        const desiredOrder = appletOrder(desiredWidgets);
-
-        try {
-            configureTaskManager(replacement);
-        } catch (error) {
-            replacement.remove();
-            print("Wintix: Task Manager migration skipped: replacement configuration failed: " + error);
-            continue;
+    for (let i = 0; i < state.widgets.length; ++i) {
+        if (canonicalWidgets.indexOf(state.widgets[i]) === -1
+            && removals.indexOf(state.widgets[i]) === -1) {
+            removals.push(state.widgets[i]);
         }
+    }
 
+    try {
+        configureTaskManager(canonicalWidgets[2]);
+    } catch (error) {
+        rollbackAdditions(panel, originalOrder, additions, "Task Manager configuration failed: " + error);
+        continue;
+    }
+
+    const desiredOrder = widgetOrder(canonicalWidgets);
+    if (desiredOrder !== originalOrder) {
         try {
-            panel.currentConfigGroup = ["General"];
             panel.writeConfig("AppletOrder", desiredOrder);
             if (String(panel.readConfig("AppletOrder", "")) !== desiredOrder) {
-                replacement.remove();
-                print("Wintix: Task Manager migration skipped: canonical panel order was not accepted");
+                rollbackAdditions(panel, originalOrder, additions, "canonical AppletOrder was not accepted");
                 continue;
             }
         } catch (error) {
-            replacement.remove();
-            print("Wintix: Task Manager migration skipped: canonical panel order failed: " + error);
+            rollbackAdditions(panel, originalOrder, additions, "canonical AppletOrder failed: " + error);
             continue;
         }
+    }
 
+    // Remove Icons-Only first. If its replacement cannot complete, restore the
+    // original order and remove every widget added by this convergence attempt.
+    const iconsOnlyWidgets = removals.filter(function (widget) {
+        return widget.type === iconsOnlyTaskManager;
+    });
+    let migrationFailed = false;
+    for (let i = 0; i < iconsOnlyWidgets.length; ++i) {
         try {
-            oldWidget.remove();
+            iconsOnlyWidgets[i].remove();
         } catch (error) {
-            try {
-                panel.writeConfig("AppletOrder", originalOrder);
-                if (String(panel.readConfig("AppletOrder", "")) !== originalOrder) {
-                    print("Wintix: Task Manager migration rollback failed to restore original order: " + error);
-                    continue;
-                }
-            } catch (rollbackError) {
-                print("Wintix: Task Manager migration rollback failed to restore original order: " + rollbackError);
-                continue;
-            }
-            try {
-                replacement.remove();
-                print("Wintix: Task Manager migration failed and was rolled back: " + error);
-            } catch (rollbackError) {
-                print("Wintix: Task Manager migration rollback could not remove replacement: " + rollbackError);
-            }
+            rollbackAdditions(panel, originalOrder, additions, "Icons-Only Task Manager removal failed: " + error);
+            migrationFailed = true;
+            break;
         }
+    }
+    if (migrationFailed) {
         continue;
     }
 
-    if (arraysEqual(ordered.types, canonicalWidgetTypes)) {
-        configureTaskManager(ordered.widgets[2]);
-        continue;
-    }
-
-    // Repair only the exact ordering produced by PR #47. Every other semantic
-    // shape is user/custom state and remains untouched.
-    if (arraysEqual(ordered.types, brokenWidgetTypes)) {
-        const canonicalWidgets = [
-            ordered.widgets[0],
-            ordered.widgets[1],
-            ordered.widgets[6],
-            ordered.widgets[2],
-            ordered.widgets[3],
-            ordered.widgets[4],
-            ordered.widgets[5],
-        ];
-        const desiredOrder = appletOrder(canonicalWidgets);
-        panel.writeConfig("AppletOrder", desiredOrder);
-        if (String(panel.readConfig("AppletOrder", "")) !== desiredOrder) {
-            print("Wintix: canonical panel order repair was not accepted");
+    for (let i = 0; i < removals.length; ++i) {
+        if (removals[i].type === iconsOnlyTaskManager) {
             continue;
         }
-        configureTaskManager(canonicalWidgets[2]);
+        try {
+            removals[i].remove();
+        } catch (error) {
+            print("Wintix: panel convergence could not remove non-baseline widget: " + error);
+        }
     }
 }
