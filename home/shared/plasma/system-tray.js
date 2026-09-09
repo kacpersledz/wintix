@@ -6,7 +6,7 @@ const alwaysShownItems = [
 ];
 
 function asList(value) {
-    if (value instanceof Array) {
+    if (Array.isArray(value)) {
         return value.slice();
     }
     if (typeof value === "string" && value.length > 0) {
@@ -31,22 +31,46 @@ function without(items, removals) {
     });
 }
 
+function arraysEqual(left, right) {
+    if (left.length !== right.length) {
+        return false;
+    }
+    for (let i = 0; i < left.length; ++i) {
+        if (left[i] !== right[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const allPanels = panels();
 for (let panelIndex = 0; panelIndex < allPanels.length; ++panelIndex) {
     const trays = allPanels[panelIndex].widgets("org.kde.plasma.systemtray");
     for (let trayIndex = 0; trayIndex < trays.length; ++trayIndex) {
-        // In Plasma 6.6 the System Tray applet is itself a custom embedded
-        // containment, so its own General group owns the visibility lists.
         const tray = trays[trayIndex];
         tray.currentConfigGroup = ["General"];
-        const shown = asList(tray.readConfig("shownItems", []));
-        const hidden = asList(tray.readConfig("hiddenItems", []));
-        const extra = asList(tray.readConfig("extraItems", []));
+        const current = {
+            shownItems: asList(tray.readConfig("shownItems", [])),
+            hiddenItems: asList(tray.readConfig("hiddenItems", [])),
+            extraItems: asList(tray.readConfig("extraItems", [])),
+        };
+        const desired = {
+            shownItems: addUnique(current.shownItems, alwaysShownItems),
+            hiddenItems: without(current.hiddenItems, alwaysShownItems),
+            extraItems: addUnique(current.extraItems, alwaysShownItems),
+        };
+        const keys = Object.keys(desired);
+        let changed = false;
 
-        // Merge only the three owned entries. All unrelated tray state stays intact.
-        tray.writeConfig("shownItems", addUnique(shown, alwaysShownItems));
-        tray.writeConfig("hiddenItems", without(hidden, alwaysShownItems));
-        tray.writeConfig("extraItems", addUnique(extra, alwaysShownItems));
-        tray.reloadConfig();
+        for (let i = 0; i < keys.length; ++i) {
+            const key = keys[i];
+            if (!arraysEqual(current[key], desired[key])) {
+                tray.writeConfig(key, desired[key]);
+                changed = true;
+            }
+        }
+        if (changed) {
+            tray.reloadConfig();
+        }
     }
 }
