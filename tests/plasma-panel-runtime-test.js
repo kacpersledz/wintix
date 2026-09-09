@@ -31,7 +31,7 @@ const ownedTaskConfig = {
     ],
 };
 
-function makeWidget(type, id, config = {}) {
+function makeWidget(type, id, config = {}, options = {}) {
     return {
         type,
         id,
@@ -43,7 +43,10 @@ function makeWidget(type, id, config = {}) {
         readConfig(key, fallback) { return key in this.config ? this.config[key] : fallback; },
         writeConfig(key, value) { this.config[key] = value; this.writes.push([key, value]); },
         reloadConfig() { this.reloads += 1; },
-        remove() { this.removed = true; },
+        remove() {
+            if (options.removeThrows) throw new Error(`removal failed for ${id}`);
+            this.removed = true;
+        },
     };
 }
 
@@ -51,11 +54,22 @@ function makePanel(types, ids, options = {}) {
     const panel = {
         location: options.location || "bottom",
         screen: options.screen === undefined ? 0 : options.screen,
-        items: types.map((type, index) => makeWidget(type, ids[index], options.configs?.[index])),
-        config: { AppletOrder: ids.join(";") },
+        items: types.map((type, index) => makeWidget(type, ids[index], options.configs?.[index], {
+            removeThrows: options.removeThrowsId === ids[index],
+        })),
+        config: { AppletOrder: Object.hasOwn(options, "appletOrder") ? options.appletOrder : ids.join(";") },
         writes: [],
         additions: 0,
-        widgets(type) { return type ? this.items.filter((item) => item.type === type && !item.removed) : this.items.filter((item) => !item.removed); },
+        widgets(type) {
+            const active = this.items.filter((item) => !item.removed);
+            if (type) return active.filter((item) => item.type === type);
+            if (!options.enumerationIds) return active;
+            const enumerated = options.enumerationIds
+                .map((id) => active.find((item) => item.id === id))
+                .filter(Boolean);
+            return enumerated.concat(active.filter((item) => !options.enumerationIds.includes(item.id)));
+        },
+        widgetById(id) { return this.items.find((item) => item.id === id && !item.removed); },
         addWidget(type) {
             this.additions += 1;
             const widget = makeWidget(type, options.newId || 25);
@@ -82,7 +96,7 @@ function plain(value) {
 }
 
 {
-    const panel = makePanel(defaultTypes, defaultIds);
+    const panel = makePanel(defaultTypes, defaultIds, { enumerationIds: [21, 3, 7, 5, 20, 4, 6] });
     run(taskScript, panel);
     assert.equal(panel.additions, 1);
     assert.equal(panel.items[2].removed, true);
@@ -96,6 +110,7 @@ function plain(value) {
 {
     const panel = makePanel(canonicalTypes, [3, 4, 25, 6, 7, 20, 21], {
         configs: [{}, {}, ownedTaskConfig],
+        enumerationIds: [20, 7, 3, 21, 25, 6, 4],
     });
     run(taskScript, panel);
     assert.equal(panel.additions, 0);
@@ -133,6 +148,22 @@ function plain(value) {
     run(taskScript, panel);
     assert.equal(panel.items[2].removed, false);
     assert.equal(panel.items[7].removed, true);
+}
+
+{
+    const panel = makePanel(defaultTypes, defaultIds, { removeThrowsId: 5 });
+    const messages = run(taskScript, panel);
+    assert.equal(panel.config.AppletOrder, "3;4;5;6;7;20;21");
+    assert.equal(panel.items[2].removed, false);
+    assert.equal(panel.items[7].removed, true);
+    assert.match(messages.join("\n"), /migration failed and was rolled back/);
+}
+
+for (const appletOrder of ["", "3;4;bad;6;7;20;21", "3;4;5;6;7;20;99", "3;4;5;6;7;20;20"]) {
+    const panel = makePanel(defaultTypes, defaultIds, { appletOrder });
+    run(taskScript, panel);
+    assert.equal(panel.additions, 0);
+    assert.deepEqual(panel.writes, []);
 }
 
 function runTray(config) {
