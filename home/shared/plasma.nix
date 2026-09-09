@@ -29,8 +29,8 @@ in
     # Plasma 6's Klipper config schema stores its history limit here.
     configFile."klipperrc".General.MaxClipItems = 999;
 
-    # Own only the selected panel-widget settings. These scripts discover
-    # widgets by plugin type and leave panel layout and generated IDs alone.
+    # Own the canonical bottom-panel composition/order and selected widget
+    # settings while preserving nested widget configuration and runtime IDs.
     startup.desktopScript = {
       task-manager = {
         text = builtins.readFile ./plasma/task-manager.js;
