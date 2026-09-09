@@ -9,6 +9,34 @@ in
     # Keep Plasma configuration hybrid: only the settings below are managed.
     overrideConfig = false;
 
+    # Declarative KWin rules are special: plasma-manager resets and owns
+    # kwinrulesrc, so manual rules only persist when represented here.
+    window-rules = [
+      {
+        description = "Brave Picture-in-Picture";
+
+        match = {
+          window-class = {
+            value = "brave";
+            type = "exact";
+            match-whole = false;
+          };
+
+          title = {
+            value = "Picture in picture";
+            type = "exact";
+          };
+
+          window-types = [ "normal" ];
+        };
+
+        apply.above = {
+          value = true;
+          apply = "initially";
+        };
+      }
+    ];
+
     workspace = {
       lookAndFeel = "org.kde.breezedark.desktop";
       wallpaper = pathWallpaper;
