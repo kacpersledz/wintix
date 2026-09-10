@@ -2,7 +2,7 @@
 // separate evaluateScript call (and therefore after an event-loop boundary).
 (function () {
     try {
-        return (function () {
+        const result = (function () {
     const launchers = [
         "applications:brave-browser.desktop",
         "applications:org.kde.dolphin.desktop",
@@ -88,7 +88,8 @@
     if (eligible === 0) throw new Error("no usable bottom panel was found");
     return changed ? "changed" : "unchanged";
         }());
+        print(result);
     } catch (error) {
-        return "WINTIX_ERROR: " + error;
+        print("WINTIX_ERROR: " + error);
     }
 }());

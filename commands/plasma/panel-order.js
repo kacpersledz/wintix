@@ -50,8 +50,8 @@
             }
         }
         if (eligible === 0) throw new Error("no usable bottom panel was found");
-        return changed ? "changed" : "unchanged";
+        print(changed ? "changed" : "unchanged");
     } catch (error) {
-        return "WINTIX_ERROR: " + error;
+        print("WINTIX_ERROR: " + error);
     }
 }());

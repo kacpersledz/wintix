@@ -4,8 +4,8 @@ root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/bin"; printf 'desktop\n' >"$tmp/config"
 for tool in sudo nixos-rebuild wintix-plasma-reconcile; do
-cat >"$tmp/bin/$tool" <<'FAKE'
-#!/usr/bin/env bash
+printf '#!%s\n' "$(command -v bash)" >"$tmp/bin/$tool"
+cat >>"$tmp/bin/$tool" <<'FAKE'
 printf '%s\n' "$(basename "$0") $*" >>"$LOG"
 case $(basename "$0") in
  sudo) shift 0; exec "$@";;
@@ -14,7 +14,7 @@ case $(basename "$0") in
 esac
 FAKE
 chmod +x "$tmp/bin/$tool"; done
-run(){ : >"$tmp/log"; set +e; PATH="$tmp/bin:$PATH" LOG="$tmp/log" REBUILD="$1" RECONCILE="$2" WINTIX_CONFIGURATION_FILE="$tmp/config" bash "$root/commands/wintix-rebuild.sh" >/dev/null 2>"$tmp/err"; rc=$?; set -e; }
+run(){ : >"$tmp/log"; set +e; PATH="$tmp/bin:$PATH" LOG="$tmp/log" REBUILD="$1" RECONCILE="$2" WINTIX_PATH="$root" WINTIX_CONFIGURATION_FILE="$tmp/config" bash "$root/commands/wintix-rebuild.sh" >/dev/null 2>"$tmp/err"; rc=$?; set -e; }
 run pass pass; [[ $rc == 0 ]]; [[ $(sed -n '2p' "$tmp/log") == nixos-rebuild* ]]; [[ $(sed -n '3p' "$tmp/log") == wintix-plasma-reconcile* ]]
 run fail pass; [[ $rc != 0 ]]; ! grep -q wintix-plasma-reconcile "$tmp/log"
 run pass fail; [[ $rc != 0 ]]

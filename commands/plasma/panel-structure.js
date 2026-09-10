@@ -2,7 +2,7 @@
 // discovered from Plasma; plugin IDs are the only stable identities here.
 (function () {
     try {
-        return (function () {
+        const result = (function () {
     const canonicalWidgetTypes = [
         "org.kde.plasma.kickoff",
         "org.kde.plasma.pager",
@@ -98,7 +98,8 @@
     if (eligible === 0) throw new Error("no usable bottom panel was found");
     return changed ? "changed" : "unchanged";
         }());
+        print(result);
     } catch (error) {
-        return "WINTIX_ERROR: " + error;
+        print("WINTIX_ERROR: " + error);
     }
 }());

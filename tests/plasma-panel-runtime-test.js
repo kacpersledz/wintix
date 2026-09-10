@@ -62,7 +62,14 @@ function makePanel(initialTypes = types, initialIds = ids, options = {}) {
   return panel;
 }
 function run(script, panel, desktops = {}) {
-  return vm.runInNewContext(script, {panels: () => [panel], desktopById: id => desktops[id]});
+  const output = [];
+  vm.runInNewContext(script, {
+    panels: () => [panel],
+    desktopById: id => desktops[id],
+    print: value => output.push(String(value)),
+  });
+  assert.equal(output.length, 1);
+  return output[0];
 }
 function flushDeferredSave(panel) {
   if (panel.pendingDeferredSave) {
@@ -151,7 +158,7 @@ for (const script of [structure, order]) {
 {
   const panel = makePanel(types, ids, {configs:[{},{},{groupingStrategy:1,unrelated:"keep"},{},{SystrayContainmentId:42}]});
   const inner = makeWidget(panel, "inner", 42, {shownItems:["shown-other"], hiddenItems:["hidden-other","org.kde.plasma.weather"], extraItems:["composition"], provider:"keep"});
-  run(settings, panel, {42:inner});
+  assert.equal(run(settings, panel, {42:inner}), "changed");
   const task = panel.widgets(types[2])[0];
   assert.deepEqual(JSON.parse(JSON.stringify(task.config)), {groupingStrategy:0, unrelated:"keep", separateLaunchers:false, interactiveMute:false, launchers});
   assert.deepEqual(JSON.parse(JSON.stringify(inner.config.shownItems)), ["shown-other","org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"]);

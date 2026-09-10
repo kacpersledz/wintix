@@ -50,7 +50,7 @@
       ];
       wintixPlasmaReconcile = pkgs.writeShellApplication {
         name = "wintix-plasma-reconcile";
-        runtimeInputs = with pkgs; [ coreutils glib ];
+        runtimeInputs = with pkgs; [ coreutils glib jq ];
         text = builtins.replaceStrings
           [ "@structureScript@" "@orderScript@" "@settingsScript@" ]
           [ "${./commands/plasma/panel-structure.js}" "${./commands/plasma/panel-order.js}" "${./commands/plasma/panel-settings.js}" ]
@@ -233,7 +233,7 @@
           touch "$out"
         '';
         plasma-panel = pkgs.runCommand "wintix-plasma-panel-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep nodejs ripgrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep jq nodejs ripgrep ];
         } ''
           bash ${./tests}/plasma-panel-test.sh ${./.}
           bash ${./commands}/tests/wintix-plasma-reconcile-test.sh ${./.}
@@ -263,7 +263,7 @@
           touch "$out"
         '';
         rebuild = pkgs.runCommand "wintix-rebuild-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils ];
+          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep gnused ];
         } ''
           bash ${./commands}/tests/wintix-rebuild-test.sh ${./.}
           touch "$out"
