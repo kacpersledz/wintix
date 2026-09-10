@@ -3,6 +3,7 @@ set -euo pipefail
 
 GDBUS=${WINTIX_GDBUS:-gdbus}
 STRUCTURE_SCRIPT=${WINTIX_PLASMA_STRUCTURE_SCRIPT:-@structureScript@}
+ORDER_SCRIPT=${WINTIX_PLASMA_ORDER_SCRIPT:-@orderScript@}
 SETTINGS_SCRIPT=${WINTIX_PLASMA_SETTINGS_SCRIPT:-@settingsScript@}
 
 skip() {
@@ -36,8 +37,9 @@ evaluate() {
 }
 
 structure_result=$(evaluate structural "$STRUCTURE_SCRIPT") || exit 1
+order_result=$(evaluate order "$ORDER_SCRIPT") || exit 1
 evaluate settings "$SETTINGS_SCRIPT" >/dev/null || exit 1
-if [[ $structure_result == *"'changed'"* ]]; then
+if [[ $structure_result == *"'changed'"* || $order_result == *"'changed'"* ]]; then
   printf 'Wintix Plasma panel structure updated; log out or reboot to apply the final panel order.\n'
 else
   printf 'Wintix Plasma reconciliation complete.\n'

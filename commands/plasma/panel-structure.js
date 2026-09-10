@@ -50,20 +50,6 @@
         return { order: order, widgets: result };
     }
 
-    function verify(panel) {
-        const state = inventory(panel);
-        if (state.widgets.length !== canonicalWidgetTypes.length) return false;
-        const expectedIds = [];
-        for (let i = 0; i < canonicalWidgetTypes.length; ++i) {
-            const matches = state.widgets.filter(function (widget) {
-                return widget.type === canonicalWidgetTypes[i];
-            });
-            if (matches.length !== 1) return false;
-            expectedIds.push(widgetId(matches[0]));
-        }
-        return state.order === expectedIds.join(";");
-    }
-
     const allPanels = panels();
     let eligible = 0;
     let changed = false;
@@ -88,8 +74,7 @@
         }
 
         // Plasma saves its current live layout when a widget is removed. Do
-        // every removal before our final AppletOrder write so that save cannot
-        // overwrite the canonical persisted order.
+        // every removal in this phase, before the separate order phase.
         for (let i = 0; i < state.widgets.length; ++i) {
             if (selected.indexOf(state.widgets[i]) === -1) {
                 state.widgets[i].remove();
@@ -97,31 +82,18 @@
             }
         }
 
-        const survivors = inventory(panel);
-        const canonicalIds = [];
-        if (survivors.widgets.length !== canonicalWidgetTypes.length) {
+        const survivors = inventory(panel).widgets;
+        if (survivors.length !== canonicalWidgetTypes.length) {
             throw new Error("unexpected widgets survived structural reconciliation");
         }
         for (let typeIndex = 0; typeIndex < canonicalWidgetTypes.length; ++typeIndex) {
-            const matches = survivors.widgets.filter(function (widget) {
+            const matches = survivors.filter(function (widget) {
                 return widget.type === canonicalWidgetTypes[typeIndex];
             });
             if (matches.length !== 1) {
                 throw new Error("canonical widget survival verification failed");
             }
-            canonicalIds.push(widgetId(matches[0]));
         }
-
-        const desiredOrder = canonicalIds.join(";");
-        if (survivors.order !== desiredOrder) {
-            panel.currentConfigGroup = ["General"];
-            panel.writeConfig("AppletOrder", desiredOrder);
-            changed = true;
-        }
-        // AppletOrder persistence and exact surviving composition are the
-        // guarantees available here; Plasma may defer visual reordering until
-        // its next start.
-        if (!verify(panel)) throw new Error("canonical panel persistence verification failed");
     }
     if (eligible === 0) throw new Error("no usable bottom panel was found");
     return changed ? "changed" : "unchanged";

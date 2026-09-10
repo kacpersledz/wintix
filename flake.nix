@@ -52,8 +52,8 @@
         name = "wintix-plasma-reconcile";
         runtimeInputs = with pkgs; [ coreutils glib ];
         text = builtins.replaceStrings
-          [ "@structureScript@" "@settingsScript@" ]
-          [ "${./commands/plasma/panel-structure.js}" "${./commands/plasma/panel-settings.js}" ]
+          [ "@structureScript@" "@orderScript@" "@settingsScript@" ]
+          [ "${./commands/plasma/panel-structure.js}" "${./commands/plasma/panel-order.js}" "${./commands/plasma/panel-settings.js}" ]
           (builtins.readFile ./commands/wintix-plasma-reconcile.sh);
       };
       wintixRebuild = pkgs.writeShellApplication {
