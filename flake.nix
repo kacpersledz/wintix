@@ -233,7 +233,7 @@
           touch "$out"
         '';
         plasma-panel = pkgs.runCommand "wintix-plasma-panel-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep jq nodejs ripgrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep jq nodejs ripgrep util-linux ];
         } ''
           bash ${./tests}/plasma-panel-test.sh ${./.}
           bash ${./commands}/tests/wintix-plasma-reconcile-test.sh ${./.}
@@ -257,19 +257,19 @@
           touch "$out"
         '';
         update = pkgs.runCommand "wintix-update-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep util-linux ];
         } ''
           bash ${./commands}/tests/wintix-update-test.sh
           touch "$out"
         '';
         rebuild = pkgs.runCommand "wintix-rebuild-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep gnused ];
+          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep gnused util-linux ];
         } ''
           bash ${./commands}/tests/wintix-rebuild-test.sh ${./.}
           touch "$out"
         '';
         work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils diffutils findutils git gnugrep ];
+          nativeBuildInputs = with pkgs; [ bash coreutils diffutils findutils git gnugrep util-linux ];
         } ''
           bash ${./commands}/tests/wintix-work-bootstrap-test.sh
           touch "$out"
@@ -279,6 +279,7 @@
             bash
             coreutils
             gnugrep
+            util-linux
           ];
         } ''
           bash ${./commands}/tests/wintix-secrets-bootstrap-test.sh
@@ -292,6 +293,7 @@
             diffutils
             gnugrep
             gnused
+            util-linux
           ];
         } ''
           bash ${./commands}/tests/wintix-secrets-enroll-test.sh

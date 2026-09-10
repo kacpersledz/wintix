@@ -45,6 +45,22 @@ chmod +x "$TEST_ROOT/bin/"*
 export PATH="$TEST_ROOT/bin:$PATH"
 export SOPS_LOG="$TEST_ROOT/sops.log"
 
+# Root is rejected before any repository, SSH, or SOPS path is inspected.
+if unshare --user --map-root-user -- true >/dev/null 2>&1; then
+  root_command=(unshare --user --map-root-user -- env EUID=1000)
+else
+  printf 'id() { printf "0\\n"; }\n' >"$TEST_ROOT/root-bash-env"
+  root_command=(env EUID=1000 BASH_ENV="$TEST_ROOT/root-bash-env")
+fi
+set +e
+"${root_command[@]}" HOME="$TEST_ROOT/root-home" WINTIX_PATH="$TEST_ROOT/root-repo" PATH="$PATH" \
+  bash "$SCRIPT_DIR/wintix-secrets-enroll.sh" >"$TEST_ROOT/root-stdout" 2>"$TEST_ROOT/root-stderr"
+root_rc=$?
+set -e
+(( root_rc != 0 ))
+grep -F 'run this command as your normal user' "$TEST_ROOT/root-stderr" >/dev/null
+[[ ! -e $TEST_ROOT/root-home && ! -e $TEST_ROOT/root-repo ]]
+
 reset_case() {
   export HOME="$TEST_ROOT/$1/home" WINTIX_PATH="$TEST_ROOT/$1/repo" XDG_RUNTIME_DIR="$TEST_ROOT/$1/run"
   mkdir -p "$HOME/.config/sops/age" "$WINTIX_PATH/secrets" "$XDG_RUNTIME_DIR"

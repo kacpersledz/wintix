@@ -59,6 +59,10 @@ The short `rebuild` and `update` Zsh aliases delegate to these commands. Set
 flake inputs, validates and switches the system, and commits and pushes only a
 changed `flake.lock`. Automatic update commits require a configured Git author
 identity, and automatic pushes require authenticated write access to `origin`.
+Run the installer as root, but run every installed `wintix-*` command as the
+normal user: rebuild and update authenticate early and elevate only the system
+switch. See the [command reference](docs/commands.md) for the full privilege
+and safety contract.
 
 Git, GitHub SSH, and the reinstall secrets bootstrap are documented in
 [`docs/secrets.md`](docs/secrets.md). After restoring the device age identity

@@ -62,6 +62,24 @@ printf '%s\n' "('unchanged\\n',)"
 FAKE_GDBUS
 chmod +x "$fake_gdbus" "$fake_jq"
 
+# The guard sees the kernel effective UID, not a caller-controlled EUID
+# environment value, and rejects root before inspecting the session.
+: >"$log"
+if unshare --user --map-root-user -- true >/dev/null 2>&1; then
+  root_command=(unshare --user --map-root-user -- env EUID=1000)
+else
+  printf 'id() { printf "0\\n"; }\n' >"$tmp/root-bash-env"
+  root_command=(env EUID=1000 BASH_ENV="$tmp/root-bash-env")
+fi
+set +e
+"${root_command[@]}" DBUS_SESSION_BUS_ADDRESS=x FAKE_LOG="$log" WINTIX_GDBUS="$fake_gdbus" WINTIX_JQ="$fake_jq" \
+  bash "$root/commands/wintix-plasma-reconcile.sh" >"$tmp/root-out" 2>"$tmp/root-err"
+root_rc=$?
+set -e
+(( root_rc != 0 ))
+grep -F 'run this command as your normal user' "$tmp/root-err" >/dev/null
+[[ ! -s $log ]]
+
 run() {
   : >"$log"
   set +e
