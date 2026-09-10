@@ -25,6 +25,22 @@
         }
         return String(actual) === String(expected);
     }
+    function hasExactItems(actual, expected) {
+        if (actual.length !== expected.length) return false;
+        return hasAllItems(actual, expected);
+    }
+    function hasAllItems(actual, expected) {
+        for (let i = 0; i < expected.length; ++i) {
+            if (actual.indexOf(expected[i]) === -1) return false;
+        }
+        return true;
+    }
+    function hasAdditionalKnownItem(known) {
+        for (let i = 0; i < known.length; ++i) {
+            if (alwaysShownItems.indexOf(known[i]) === -1) return true;
+        }
+        return false;
+    }
     function setOwned(widget, desired) {
         widget.currentConfigGroup = ["General"];
         let changed = false;
@@ -59,13 +75,10 @@
             launchers: launchers,
         }) || changed;
 
-        trays[0].currentConfigGroup = ["General"];
-        const containmentId = Number(trays[0].readConfig("SystrayContainmentId", -1));
-        const systray = containmentId >= 0 ? desktopById(containmentId) : null;
-        if (!systray) throw new Error("System Tray inner containment is not available");
-        systray.currentConfigGroup = ["General"];
-        const shown = asList(systray.readConfig("shownItems", []));
-        const hidden = asList(systray.readConfig("hiddenItems", []));
+        const tray = trays[0];
+        tray.currentConfigGroup = ["General"];
+        const shown = asList(tray.readConfig("shownItems", []));
+        const hidden = asList(tray.readConfig("hiddenItems", []));
         const desiredShown = shown.slice();
         for (let item = 0; item < alwaysShownItems.length; ++item) {
             if (desiredShown.indexOf(alwaysShownItems[item]) === -1) desiredShown.push(alwaysShownItems[item]);
@@ -75,14 +88,22 @@
         });
         let trayChanged = false;
         if (!equal(shown, desiredShown)) {
-            systray.writeConfig("shownItems", desiredShown);
+            tray.writeConfig("shownItems", desiredShown);
             trayChanged = true;
         }
         if (!equal(hidden, desiredHidden)) {
-            systray.writeConfig("hiddenItems", desiredHidden);
+            tray.writeConfig("hiddenItems", desiredHidden);
             trayChanged = true;
         }
-        if (trayChanged) systray.reloadConfig();
+        const extraItems = asList(tray.readConfig("extraItems", []));
+        const knownItems = asList(tray.readConfig("knownItems", []));
+        if (hasExactItems(extraItems, alwaysShownItems) &&
+            hasAdditionalKnownItem(knownItems) &&
+            hasAllItems(knownItems, alwaysShownItems)) {
+            tray.writeConfig("extraItems", knownItems);
+            trayChanged = true;
+        }
+        if (trayChanged) tray.reloadConfig();
         changed = trayChanged || changed;
     }
     if (eligible === 0) throw new Error("no usable bottom panel was found");

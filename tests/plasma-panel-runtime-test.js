@@ -61,11 +61,10 @@ function makePanel(initialTypes = types, initialIds = ids, options = {}) {
   panel.items = initialTypes.map((type, index) => makeWidget(panel, type, initialIds[index], options.configs?.[index]));
   return panel;
 }
-function run(script, panel, desktops = {}) {
+function run(script, panel) {
   const output = [];
   vm.runInNewContext(script, {
     panels: () => [panel],
-    desktopById: id => desktops[id],
     print: value => output.push(String(value)),
   });
   assert.equal(output.length, 1);
@@ -154,29 +153,88 @@ for (const script of [structure, order]) {
   assert.doesNotMatch(script, /(applet|containment)(Id|ID)\s*=\s*[0-9]+/);
 }
 
-// Settings retain their narrow ownership model.
+const managedTrayItems = ["org.kde.plasma.notifications", "org.kde.plasma.weather", "org.kde.plasma.battery"];
+const healthyKnownItems = ["org.kde.plasma.clipboard", ...managedTrayItems, "org.kde.plasma.bluetooth"];
+function settingsPanel(taskConfig, trayConfig) {
+  return makePanel(types, ids, {configs:[{},{},taskConfig,{},{...trayConfig}]});
+}
+
+// The Plasma 6.6 System Tray top-level widget directly owns tray settings.
+// Visibility converges while unrelated composition and discovery settings stay intact.
 {
-  const panel = makePanel(types, ids, {configs:[{},{},{groupingStrategy:1,unrelated:"keep"},{},{SystrayContainmentId:42}]});
-  const inner = makeWidget(panel, "inner", 42, {shownItems:["shown-other"], hiddenItems:["hidden-other","org.kde.plasma.weather"], extraItems:["composition"], provider:"keep"});
-  assert.equal(run(settings, panel, {42:inner}), "changed");
+  const panel = settingsPanel(
+    {groupingStrategy:1, unrelated:"keep"},
+    {
+      shownItems:["shown-other"],
+      hiddenItems:["hidden-other", "org.kde.plasma.weather"],
+      extraItems:["composition-a", "composition-b"],
+      knownItems:healthyKnownItems,
+    },
+  );
+  assert.equal(run(settings, panel), "changed");
   const task = panel.widgets(types[2])[0];
+  const tray = panel.widgets(types[4])[0];
   assert.deepEqual(JSON.parse(JSON.stringify(task.config)), {groupingStrategy:0, unrelated:"keep", separateLaunchers:false, interactiveMute:false, launchers});
-  assert.deepEqual(JSON.parse(JSON.stringify(inner.config.shownItems)), ["shown-other","org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"]);
-  assert.deepEqual(JSON.parse(JSON.stringify(inner.config.hiddenItems)), ["hidden-other"]);
-  assert.deepEqual(inner.config.extraItems, ["composition"]); assert.equal(inner.config.provider, "keep");
-  assert.ok(inner.writes.every(([key]) => key !== "extraItems"));
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.config.shownItems)), ["shown-other", ...managedTrayItems]);
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.config.hiddenItems)), ["hidden-other"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.config.extraItems)), ["composition-a", "composition-b"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.config.knownItems)), healthyKnownItems);
+  assert.ok(tray.writes.every(([key]) => key !== "extraItems"));
 }
-// Already-correct owned settings do not write or reload; a missing inner
-// containment is reported without a destructive fallback.
+// The precise legacy fingerprint repairs composition once, from knownItems order.
 {
-  const taskConfig = {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers};
-  const panel = makePanel(types, ids, {configs:[{},{},taskConfig,{},{SystrayContainmentId:77}]});
-  const inner = makeWidget(panel, "inner", 77, {shownItems:["org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"], hiddenItems:["other"]});
-  assert.equal(run(settings, panel, {77:inner}), "unchanged");
-  assert.deepEqual(panel.widgets(types[2])[0].writes, []); assert.equal(inner.reloads, 0);
+  const knownItems = [
+    "org.kde.plasma.clipboard",
+    "org.kde.plasma.notifications",
+    "org.kde.plasma.battery",
+    "org.kde.plasma.bluetooth",
+    "org.kde.plasma.networkmanagement",
+    "org.kde.plasma.volume",
+    "org.kde.plasma.weather",
+  ];
+  const panel = settingsPanel(
+    {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
+    {
+      shownItems:managedTrayItems.join(","),
+      hiddenItems:"other",
+      extraItems:managedTrayItems.join(","),
+      knownItems:knownItems.join(","),
+    },
+  );
+  const tray = panel.widgets(types[4])[0];
+  assert.equal(run(settings, panel), "changed");
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.config.extraItems)), knownItems);
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.writes.filter(([key]) => key === "extraItems"))), [["extraItems", knownItems]]);
+  assert.equal(tray.reloads, 1);
+  const writes = tray.writes.length;
+  assert.equal(run(settings, panel), "unchanged");
+  assert.equal(tray.writes.length, writes); assert.equal(tray.reloads, 1);
 }
+// Custom and ambiguous composition states are not Wintix-owned.
+for (const [extraItems, knownItems] of [
+  [[...managedTrayItems, "org.kde.plasma.clipboard"], healthyKnownItems],
+  [["org.example.custom"], healthyKnownItems],
+  [[], healthyKnownItems],
+  [managedTrayItems, managedTrayItems],
+]) {
+  const panel = settingsPanel(
+    {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
+    {shownItems:managedTrayItems, hiddenItems:["other"], extraItems, knownItems},
+  );
+  const tray = panel.widgets(types[4])[0];
+  assert.equal(run(settings, panel), "unchanged");
+  assert.deepEqual(JSON.parse(JSON.stringify(tray.config.extraItems)), extraItems);
+  assert.ok(tray.writes.every(([key]) => key !== "extraItems")); assert.equal(tray.reloads, 0);
+}
+// Already-correct owned Task Manager and healthy tray state are a full no-op.
 {
-  const panel = makePanel(types, ids, {configs:[{},{},{},{},{SystrayContainmentId:99}]});
-  assert.match(run(settings, panel, {}), /WINTIX_ERROR:.*not available/);
+  const panel = settingsPanel(
+    {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
+    {shownItems:managedTrayItems, hiddenItems:["other"], extraItems:["composition"], knownItems:healthyKnownItems},
+  );
+  const task = panel.widgets(types[2])[0];
+  const tray = panel.widgets(types[4])[0];
+  assert.equal(run(settings, panel), "unchanged");
+  assert.deepEqual(task.writes, []); assert.deepEqual(tray.writes, []); assert.equal(task.reloads, 0); assert.equal(tray.reloads, 0);
 }
 console.log("Plasma panel runtime tests passed");
