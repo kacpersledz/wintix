@@ -61,6 +61,11 @@ write_fake_tools() {
     '  touch "$FAKE_RACE_MARKER"' \
     'fi' > "$TEST_BIN/nixos-rebuild"
   chmod +x "$TEST_BIN/nixos-rebuild"
+
+  printf '%s\n' '#!/bin/sh' \
+    'printf "plasma-reconcile\n" >> "$FAKE_LOG"' \
+    '[ "${FAKE_RECONCILE_MODE:-pass}" = pass ]' > "$TEST_BIN/wintix-plasma-reconcile"
+  chmod +x "$TEST_BIN/wintix-plasma-reconcile"
 }
 
 make_repo() {
@@ -107,6 +112,7 @@ run_update() {
     "FAKE_NIX_CHECK_MODE=${FAKE_NIX_CHECK_MODE:-pass}"
     "FAKE_REBUILD_MODE=${FAKE_REBUILD_MODE:-pass}"
     "FAKE_REBUILD_REPO=$repo"
+    "FAKE_RECONCILE_MODE=${FAKE_RECONCILE_MODE:-pass}"
     "FAKE_RACE_REPO=${FAKE_RACE_REPO:-}"
     "FAKE_RACE_MARKER=${FAKE_RACE_MARKER:-}"
     "FAKE_RACE_CLONE=${FAKE_RACE_CLONE:-}"
@@ -211,6 +217,10 @@ assert_contains "$RUN_STDOUT" 'Wintix is already up to date.'
 [[ $(git -C "$repo" rev-parse HEAD) == "$before" ]]
 assert_contains "$FAKE_LOG" 'nixos-rebuild'
 assert_contains "$FAKE_LOG" '#work-laptop'
+assert_contains "$FAKE_LOG" 'plasma-reconcile'
+rebuild_line=$(grep -n '^nixos-rebuild ' "$FAKE_LOG" | cut -d: -f1)
+reconcile_line=$(grep -n '^plasma-reconcile$' "$FAKE_LOG" | cut -d: -f1)
+(( rebuild_line < reconcile_line ))
 assert_clean "$repo"
 
 # A behind checkout fast-forwards before the update pipeline continues.
@@ -272,7 +282,16 @@ assert_failure
 assert_contains "$RUN_STDERR" 'nixos-rebuild failed'
 [[ $(git -C "$repo" log -1 --format=%s) == initial ]]
 [[ -n $(git -C "$repo" status --porcelain=v1) ]]
+! grep -q plasma-reconcile "$FAKE_LOG"
 FAKE_REBUILD_MODE=pass
+
+repo=$(make_repo reconcile-failure)
+FAKE_RECONCILE_MODE=fail run_update "$repo" lock
+assert_failure
+assert_contains "$RUN_STDERR" 'Plasma reconciliation failed'
+[[ $(git -C "$repo" log -1 --format=%s) == initial ]]
+[[ $(git -C "$repo" rev-parse HEAD) == $(git -C "$repo" rev-parse origin/master) ]]
+FAKE_RECONCILE_MODE=pass
 
 repo=$(make_repo check-failure)
 FAKE_NIX_CHECK_MODE=fail run_update "$repo" lock

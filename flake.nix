@@ -48,14 +48,22 @@
         nix
         nixos-rebuild
       ];
+      wintixPlasmaReconcile = pkgs.writeShellApplication {
+        name = "wintix-plasma-reconcile";
+        runtimeInputs = with pkgs; [ coreutils glib ];
+        text = builtins.replaceStrings
+          [ "@structureScript@" "@settingsScript@" ]
+          [ "${./commands/plasma/panel-structure.js}" "${./commands/plasma/panel-settings.js}" ]
+          (builtins.readFile ./commands/wintix-plasma-reconcile.sh);
+      };
       wintixRebuild = pkgs.writeShellApplication {
         name = "wintix-rebuild";
-        runtimeInputs = wintixRuntimeInputs;
+        runtimeInputs = wintixRuntimeInputs ++ [ wintixPlasmaReconcile ];
         text = builtins.readFile ./commands/wintix-rebuild.sh;
       };
       wintixUpdate = pkgs.writeShellApplication {
         name = "wintix-update";
-        runtimeInputs = wintixRuntimeInputs;
+        runtimeInputs = wintixRuntimeInputs ++ [ wintixPlasmaReconcile ];
         text = builtins.readFile ./commands/wintix-update.sh;
       };
       wintixSecretsBootstrap = pkgs.writeShellApplication {
@@ -114,6 +122,7 @@
         disko = disko.packages.${system}.disko;
         wintix-rebuild = wintixRebuild;
         wintix-update = wintixUpdate;
+        wintix-plasma-reconcile = wintixPlasmaReconcile;
         wintix-secrets-bootstrap = wintixSecretsBootstrap;
         wintix-secrets-enroll = wintixSecretsEnroll;
         wintix-work-bootstrap = wintixWorkBootstrap;
@@ -227,6 +236,7 @@
           nativeBuildInputs = with pkgs; [ bash coreutils gnugrep nodejs ripgrep ];
         } ''
           bash ${./tests}/plasma-panel-test.sh ${./.}
+          bash ${./commands}/tests/wintix-plasma-reconcile-test.sh ${./.}
           touch "$out"
         '';
         installer = pkgs.runCommand "wintix-installer-test" {
@@ -250,6 +260,12 @@
           nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep ];
         } ''
           bash ${./commands}/tests/wintix-update-test.sh
+          touch "$out"
+        '';
+        rebuild = pkgs.runCommand "wintix-rebuild-test" {
+          nativeBuildInputs = with pkgs; [ bash coreutils ];
+        } ''
+          bash ${./commands}/tests/wintix-rebuild-test.sh ${./.}
           touch "$out"
         '';
         work-bootstrap = pkgs.runCommand "wintix-work-bootstrap-test" {

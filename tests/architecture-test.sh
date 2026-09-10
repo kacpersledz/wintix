@@ -16,6 +16,11 @@ grep -q 'Hostname:' installer/configurator.sh
 grep -q 'machine-generated.nix' installer/install-system.sh
 grep -q 'WINTIX_CONFIGURATION_FILE' commands/wintix-rebuild.sh
 grep -q 'WINTIX_CONFIGURATION_FILE' commands/wintix-update.sh
+grep -q 'wintix-plasma-reconcile' commands/wintix-update.sh
+grep -q 'wintix-plasma-reconcile' commands/wintix-rebuild.sh
+! rg -q 'startup\.desktopScript|runAlways' home/shared/plasma.nix
+grep -q 'wintix-plasma-reconcile' hosts/desktop/default.nix
+grep -q 'wintix-plasma-reconcile' hosts/work-laptop/default.nix
 grep -q 'size = config.wintix.swapSizeMiB' modules/workstation.nix
 grep -q 'memoryPercent = 50' modules/workstation.nix
 ! grep -q 'swapDevices' hosts/desktop/default.nix

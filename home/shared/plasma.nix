@@ -57,17 +57,7 @@ in
     # Plasma 6's Klipper config schema stores its history limit here.
     configFile."klipperrc".General.MaxClipItems = 999;
 
-    # Own the canonical bottom-panel composition/order and selected widget
-    # settings while preserving nested widget configuration and runtime IDs.
-    startup.desktopScript = {
-      task-manager = {
-        text = builtins.readFile ./plasma/task-manager.js;
-        runAlways = true;
-      };
-      system-tray = {
-        text = builtins.readFile ./plasma/system-tray.js;
-        runAlways = true;
-      };
-    };
+    # Bottom-panel state is reconciled explicitly after Wintix rebuild/update,
+    # never while Plasma is still initializing at login.
   };
 }
