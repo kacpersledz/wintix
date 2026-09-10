@@ -87,23 +87,41 @@
             }
         }
 
-        const desiredOrder = selected.map(widgetId).join(";");
-        if (state.order !== desiredOrder) {
-            panel.currentConfigGroup = ["General"];
-            panel.writeConfig("AppletOrder", desiredOrder);
-            if (String(panel.readConfig("AppletOrder", "")) !== desiredOrder) {
-                throw new Error("Plasma rejected canonical AppletOrder");
-            }
-            changed = true;
-        }
-
+        // Plasma saves its current live layout when a widget is removed. Do
+        // every removal before our final AppletOrder write so that save cannot
+        // overwrite the canonical persisted order.
         for (let i = 0; i < state.widgets.length; ++i) {
             if (selected.indexOf(state.widgets[i]) === -1) {
                 state.widgets[i].remove();
                 changed = true;
             }
         }
-        if (!verify(panel)) throw new Error("canonical panel verification failed");
+
+        const survivors = inventory(panel);
+        const canonicalIds = [];
+        if (survivors.widgets.length !== canonicalWidgetTypes.length) {
+            throw new Error("unexpected widgets survived structural reconciliation");
+        }
+        for (let typeIndex = 0; typeIndex < canonicalWidgetTypes.length; ++typeIndex) {
+            const matches = survivors.widgets.filter(function (widget) {
+                return widget.type === canonicalWidgetTypes[typeIndex];
+            });
+            if (matches.length !== 1) {
+                throw new Error("canonical widget survival verification failed");
+            }
+            canonicalIds.push(widgetId(matches[0]));
+        }
+
+        const desiredOrder = canonicalIds.join(";");
+        if (survivors.order !== desiredOrder) {
+            panel.currentConfigGroup = ["General"];
+            panel.writeConfig("AppletOrder", desiredOrder);
+            changed = true;
+        }
+        // AppletOrder persistence and exact surviving composition are the
+        // guarantees available here; Plasma may defer visual reordering until
+        // its next start.
+        if (!verify(panel)) throw new Error("canonical panel persistence verification failed");
     }
     if (eligible === 0) throw new Error("no usable bottom panel was found");
     return changed ? "changed" : "unchanged";

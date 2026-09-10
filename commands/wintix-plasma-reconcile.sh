@@ -32,8 +32,13 @@ evaluate() {
     printf 'wintix-plasma-reconcile: %s phase failed: %s\n' "$phase" "$output" >&2
     return 1
   fi
+  printf '%s\n' "$output"
 }
 
-evaluate structural "$STRUCTURE_SCRIPT" || exit 1
-evaluate settings "$SETTINGS_SCRIPT" || exit 1
-printf 'Wintix Plasma reconciliation complete.\n'
+structure_result=$(evaluate structural "$STRUCTURE_SCRIPT") || exit 1
+evaluate settings "$SETTINGS_SCRIPT" >/dev/null || exit 1
+if [[ $structure_result == *"'changed'"* ]]; then
+  printf 'Wintix Plasma panel structure updated; log out or reboot to apply the final panel order.\n'
+else
+  printf 'Wintix Plasma reconciliation complete.\n'
+fi

@@ -5,41 +5,140 @@ const vm = require("node:vm");
 const root = process.argv[2] || process.cwd();
 const structure = fs.readFileSync(`${root}/commands/plasma/panel-structure.js`, "utf8");
 const settings = fs.readFileSync(`${root}/commands/plasma/panel-settings.js`, "utf8");
-const types = ["org.kde.plasma.kickoff", "org.kde.plasma.pager", "org.kde.plasma.taskmanager", "org.kde.plasma.marginsseparator", "org.kde.plasma.systemtray", "org.kde.plasma.digitalclock", "org.kde.plasma.showdesktop"];
+const types = [
+  "org.kde.plasma.kickoff", "org.kde.plasma.pager", "org.kde.plasma.taskmanager",
+  "org.kde.plasma.marginsseparator", "org.kde.plasma.systemtray",
+  "org.kde.plasma.digitalclock", "org.kde.plasma.showdesktop",
+];
+const ids = [103, 204, 305, 406, 507, 608, 709];
 const launchers = ["applications:brave-browser.desktop", "applications:org.kde.dolphin.desktop", "applications:org.kde.konsole.desktop"];
-let nextId;
-function widget(panel, type, id, config = {}) { return { type, id, config: {...config}, writes: [], reloads: 0, removed: false,
-  readConfig(k,d) { return Object.hasOwn(this.config,k) ? this.config[k] : d; },
-  writeConfig(k,v) { this.config[k]=v; this.writes.push([k,v]); }, reloadConfig() { this.reloads++; },
-  remove() { this.removed=true; panel.config.AppletOrder=panel.config.AppletOrder.split(";").filter(x=>x!==String(id)).join(";"); }
-}; }
-function panel(initialTypes=types, ids=[103,204,305,406,507,608,709], options={}) {
-  nextId=options.nextId || 900; const p={location:"bottom",screen:0,config:{AppletOrder: options.order ?? ids.join(";")},writes:[],items:[],
-    readConfig(k,d){return Object.hasOwn(this.config,k)?this.config[k]:d}, writeConfig(k,v){this.config[k]=v;this.writes.push([k,v])},
-    widgets(t){let a=this.items.filter(x=>!x.removed); if(options.enumeration) a=options.enumeration.map(id=>a.find(x=>x.id===id)).filter(Boolean).concat(a.filter(x=>!options.enumeration.includes(x.id))); return t?a.filter(x=>x.type===t):a},
-    widgetById(id){return this.items.find(x=>x.id===id&&!x.removed)}, addWidget(t){const w=widget(this,t,nextId++);this.items.push(w);this.config.AppletOrder=[this.config.AppletOrder,w.id].filter(Boolean).join(";");return w}
-  }; p.items=initialTypes.map((t,i)=>widget(p,t,ids[i],options.configs?.[i])); return p;
+
+function makeWidget(panel, type, id, config = {}) {
+  return { type, id, config: {...config}, writes: [], reloads: 0, removed: false,
+    readConfig(key, fallback) { return Object.hasOwn(this.config, key) ? this.config[key] : fallback; },
+    writeConfig(key, value) { this.config[key] = value; this.writes.push([key, value]); },
+    reloadConfig() { this.reloads++; },
+    remove() {
+      this.removed = true;
+      panel.removals.push(id);
+      panel.visualIds = panel.visualIds.filter(candidate => candidate !== id);
+      // Plasma 6.6.6 saves the current live layout during removal. A previous
+      // Wintix AppletOrder write would be lost here.
+      panel.config.AppletOrder = panel.visualIds.join(";");
+    },
+  };
 }
-function run(script,p,desktops={}) { return vm.runInNewContext(script,{panels:()=>[p],desktopById:id=>desktops[id]}); }
-function ordered(p){return p.config.AppletOrder.split(";").map(id=>p.widgetById(Number(id)).type)}
-function canonical(p){assert.deepEqual(ordered(p),types);assert.deepEqual(p.widgets().map(x=>x.type).sort(),types.slice().sort())}
-// Exact state is a structural no-op, regardless of enumeration order.
-{const p=panel(types,undefined,{enumeration:[608,103,507,709,305,204,406]});assert.equal(run(structure,p),"unchanged");assert.deepEqual(p.writes,[]);canonical(p)}
-// Permutation converges semantically, without trusting enumeration order.
-{const ts=[types[4],types[2],types[0],types[6],types[1],types[5],types[3]], ids=[507,305,103,709,204,608,406];const p=panel(ts,ids,{enumeration:ids.slice().reverse()});run(structure,p);canonical(p)}
-// Icons-only, every missing kind (including task manager and tray), duplicates,
-// and arbitrary extras all converge to exactly one canonical set.
-{const p=panel(types.map(t=>t===types[2]?"org.kde.plasma.icontasks":t));run(structure,p);canonical(p)}
-for(let missing=0;missing<types.length;missing++){const ts=types.filter((_,i)=>i!==missing),ids=[103,204,305,406,507,608].map((x,i)=>x+missing*20);const p=panel(ts,ids,{order:ids.join(";"),nextId:800+missing});run(structure,p);canonical(p)}
-{const p=panel([...types,types[0],"org.example.extra"],[103,204,305,406,507,608,709,810,811]);run(structure,p);canonical(p)}
-// Verification failure is surfaced.
-{const p=panel(types,[103,204,305,406,507,608,709],{order:"204;103;305;406;507;608;709"});p.writeConfig=function(){};assert.match(run(structure,p),/WINTIX_ERROR:.*rejected|WINTIX_ERROR:.*verification/)}
-assert.doesNotMatch(structure,/Widget\.index|\.index\s*=/);assert.doesNotMatch(structure,/(applet|containment)(Id|ID)\s*=\s*[0-9]+/);
-// Settings touch only owned Task Manager values and inner-tray visibility.
-{const p=panel(types,undefined,{configs:[{},{},{groupingStrategy:1,unrelated:"keep"},{},{SystrayContainmentId:42}]});const inner=widget(p,"inner",42,{shownItems:["shown-other"],hiddenItems:["hidden-other","org.kde.plasma.weather"],extraItems:["composition"],provider:"keep"});run(settings,p,{42:inner});const task=p.widgets(types[2])[0];assert.deepEqual(JSON.parse(JSON.stringify(task.config)),{groupingStrategy:0,unrelated:"keep",separateLaunchers:false,interactiveMute:false,launchers});assert.equal(task.reloads,1);assert.deepEqual(JSON.parse(JSON.stringify(inner.config.shownItems)),["shown-other","org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"]);assert.deepEqual(JSON.parse(JSON.stringify(inner.config.hiddenItems)),["hidden-other"]);assert.deepEqual(inner.config.extraItems,["composition"]);assert.equal(inner.config.provider,"keep");assert.equal(inner.reloads,1);assert.ok(inner.writes.every(([k])=>k!=="extraItems"))}
-// Correct settings are write/reload-free.
-{const cfg={groupingStrategy:0,separateLaunchers:false,interactiveMute:false,launchers};const p=panel(types,undefined,{configs:[{},{},cfg,{},{SystrayContainmentId:77}]});const shown=["other","org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"],inner=widget(p,"inner",77,{shownItems:shown,hiddenItems:["other-hidden"]});assert.equal(run(settings,p,{77:inner}),"unchanged");assert.deepEqual(p.widgets(types[2])[0].writes,[]);assert.equal(inner.reloads,0)}
-// A newly added tray is usable in phase two, while unavailable containment fails safely.
-{const p=panel(types.filter(t=>t!==types[4]),[103,204,305,406,608,709],{nextId:950});run(structure,p);const tray=p.widgets(types[4])[0];tray.config.SystrayContainmentId=88;const inner=widget(p,"inner",88,{});run(settings,p,{88:inner});assert.equal(inner.writes.length,1)}
-{const p=panel(types,undefined,{configs:[{},{},{},{},{SystrayContainmentId:99}]});assert.match(run(settings,p,{}),/WINTIX_ERROR:.*not available/);assert.doesNotMatch(settings,/writeConfig\("extraItems"/)}
+
+function makePanel(initialTypes = types, initialIds = ids, options = {}) {
+  const panel = {
+    location: "bottom", screen: 0, config: {AppletOrder: options.order ?? initialIds.join(";")},
+    writes: [], removals: [], items: [], visualIds: (options.visualIds || initialIds).slice(),
+    nextId: options.nextId || 900,
+    readConfig(key, fallback) { return Object.hasOwn(this.config, key) ? this.config[key] : fallback; },
+    writeConfig(key, value) {
+      this.writes.push([key, value]);
+      if (!options.rejectOrder) this.config[key] = value;
+      // Deliberately do not reorder visualIds: Plasma can defer that until restart.
+    },
+    widgets(type) {
+      let active = this.items.filter(item => !item.removed);
+      if (options.enumerationIds) {
+        active = options.enumerationIds.map(id => active.find(item => item.id === id)).filter(Boolean)
+          .concat(active.filter(item => !options.enumerationIds.includes(item.id)));
+      }
+      return type ? active.filter(item => item.type === type) : active;
+    },
+    widgetById(id) { return this.items.find(item => item.id === id && !item.removed); },
+    addWidget(type) {
+      const added = makeWidget(this, type, this.nextId++);
+      this.items.push(added);
+      this.visualIds.push(added.id);
+      this.config.AppletOrder = this.visualIds.join(";");
+      return added;
+    },
+  };
+  panel.items = initialTypes.map((type, index) => makeWidget(panel, type, initialIds[index], options.configs?.[index]));
+  return panel;
+}
+function run(script, panel, desktops = {}) {
+  return vm.runInNewContext(script, {panels: () => [panel], desktopById: id => desktops[id]});
+}
+function persistedIds(panel) { return panel.config.AppletOrder.split(";").map(Number); }
+function canonicalIds(panel) { return types.map(type => panel.widgets(type)[0].id); }
+function assertPersistedCanonical(panel) {
+  assert.deepEqual(persistedIds(panel), canonicalIds(panel));
+  assert.equal(panel.widgets().length, types.length);
+  for (const type of types) assert.equal(panel.widgets(type).length, 1);
+}
+
+// Exact canonical state is a complete structural no-op.
+{
+  const panel = makePanel(types, ids, {enumerationIds: ids.slice().reverse()});
+  assert.equal(run(structure, panel), "unchanged");
+  assert.deepEqual(panel.writes, []); assert.deepEqual(panel.removals, []);
+  assertPersistedCanonical(panel);
+}
+// A canonical permutation persists canonical IDs without pretending visual order changed.
+{
+  const permutation = [507, 305, 103, 709, 204, 608, 406];
+  const panel = makePanel(types, ids, {order: permutation.join(";"), visualIds: permutation});
+  assert.equal(run(structure, panel), "changed");
+  assert.deepEqual(panel.visualIds, permutation);
+  assertPersistedCanonical(panel);
+}
+// Regression: Icons-Only removal overwrites AppletOrder, then Wintix's final write restores it.
+{
+  const initialTypes = types.map(type => type === types[2] ? "org.kde.plasma.icontasks" : type);
+  const panel = makePanel(initialTypes, ids, {nextId: 925});
+  assert.equal(run(structure, panel), "changed");
+  assert.deepEqual(panel.removals, [305]);
+  assert.equal(panel.widgets(types[2])[0].id, 925);
+  assert.equal(panel.writes.at(-1)[0], "AppletOrder");
+  assertPersistedCanonical(panel);
+}
+// Missing tray is added and persisted in canonical slot five.
+{
+  const panel = makePanel(types.filter(type => type !== types[4]), [103,204,305,406,608,709], {nextId: 950});
+  run(structure, panel); assert.equal(persistedIds(panel)[4], 950); assertPersistedCanonical(panel);
+}
+// Duplicate and extra removals each trigger Plasma's save; final write still wins.
+for (const [extraType, extraId] of [[types[0], 810], ["org.example.extra", 811]]) {
+  const panel = makePanel([...types, extraType], [...ids, extraId], {visualIds:[204,103,extraId,305,406,507,608,709]});
+  run(structure, panel); assert.deepEqual(panel.removals, [extraId]); assertPersistedCanonical(panel);
+  assert.equal(panel.writes.at(-1)[0], "AppletOrder");
+}
+// A rejected final persistence write is a structural error.
+{
+  const visual = [204,103,305,406,507,608,709];
+  const panel = makePanel(types, ids, {order: visual.join(";"), visualIds: visual, rejectOrder: true});
+  assert.match(run(structure, panel), /WINTIX_ERROR:.*persistence verification failed/);
+}
+assert.doesNotMatch(structure, /Widget\.index|\.index\s*=/);
+assert.doesNotMatch(structure, /(applet|containment)(Id|ID)\s*=\s*[0-9]+/);
+
+// Settings retain their narrow ownership model.
+{
+  const panel = makePanel(types, ids, {configs:[{},{},{groupingStrategy:1,unrelated:"keep"},{},{SystrayContainmentId:42}]});
+  const inner = makeWidget(panel, "inner", 42, {shownItems:["shown-other"], hiddenItems:["hidden-other","org.kde.plasma.weather"], extraItems:["composition"], provider:"keep"});
+  run(settings, panel, {42:inner});
+  const task = panel.widgets(types[2])[0];
+  assert.deepEqual(JSON.parse(JSON.stringify(task.config)), {groupingStrategy:0, unrelated:"keep", separateLaunchers:false, interactiveMute:false, launchers});
+  assert.deepEqual(JSON.parse(JSON.stringify(inner.config.shownItems)), ["shown-other","org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(inner.config.hiddenItems)), ["hidden-other"]);
+  assert.deepEqual(inner.config.extraItems, ["composition"]); assert.equal(inner.config.provider, "keep");
+  assert.ok(inner.writes.every(([key]) => key !== "extraItems"));
+}
+// Already-correct owned settings do not write or reload; a missing inner
+// containment is reported without a destructive fallback.
+{
+  const taskConfig = {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers};
+  const panel = makePanel(types, ids, {configs:[{},{},taskConfig,{},{SystrayContainmentId:77}]});
+  const inner = makeWidget(panel, "inner", 77, {shownItems:["org.kde.plasma.notifications","org.kde.plasma.weather","org.kde.plasma.battery"], hiddenItems:["other"]});
+  assert.equal(run(settings, panel, {77:inner}), "unchanged");
+  assert.deepEqual(panel.widgets(types[2])[0].writes, []); assert.equal(inner.reloads, 0);
+}
+{
+  const panel = makePanel(types, ids, {configs:[{},{},{},{},{SystrayContainmentId:99}]});
+  assert.match(run(settings, panel, {}), /WINTIX_ERROR:.*not available/);
+}
 console.log("Plasma panel runtime tests passed");
