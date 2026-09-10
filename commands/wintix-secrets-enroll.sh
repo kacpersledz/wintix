@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $(id -u) -eq 0 ]]; then
+  printf 'wintix-secrets-enroll: run this command as your normal user; it operates on user-owned secret material.\n' >&2
+  exit 1
+fi
+
 die() {
   printf 'wintix-secrets-enroll: %s\n' "$*" >&2
   exit 1

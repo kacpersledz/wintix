@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $(id -u) -eq 0 ]]; then
+  printf 'wintix-work-bootstrap: run this command as your normal user; it operates on user-owned Git and SSH configuration.\n' >&2
+  exit 1
+fi
+
 config_dir="$HOME/.config/wintix"
 ssh_dir=$HOME/.ssh
 personal_key=$ssh_dir/id_ed25519_personal

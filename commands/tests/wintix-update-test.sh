@@ -6,6 +6,7 @@ UPDATE_SCRIPT="$SCRIPT_DIR/wintix-update.sh"
 TEST_ROOT=$(mktemp -d)
 TEST_BIN="$TEST_ROOT/bin"
 FAKE_LOG="$TEST_ROOT/fake.log"
+REAL_GIT=$(command -v git)
 mkdir -p "$TEST_BIN"
 
 cleanup() {
@@ -14,7 +15,7 @@ cleanup() {
 trap cleanup EXIT
 
 export PATH="$TEST_BIN:$PATH"
-export FAKE_LOG
+export FAKE_LOG REAL_GIT
 
 write_fake_tools() {
   printf '%s\n' '#!/bin/sh' \
@@ -38,7 +39,15 @@ write_fake_tools() {
   printf '%s\n' '#!/bin/sh' \
     '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
     'set -euo pipefail' \
+    'if [[ ${FAKE_GIT_LOG:-0} == 1 ]]; then printf "git %s\\n" "$*" >> "$FAKE_LOG"; fi' \
+    'exec "$REAL_GIT" "$@"' > "$TEST_BIN/git"
+  chmod +x "$TEST_BIN/git"
+
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
+    'set -euo pipefail' \
     'printf "sudo %s\\n" "$*" >> "$FAKE_LOG"' \
+    'if [[ ${1:-} == -v ]]; then [[ ${FAKE_SUDO_MODE:-pass} == pass ]]; exit; fi' \
     'exec "$@"' > "$TEST_BIN/sudo"
   chmod +x "$TEST_BIN/sudo"
 
@@ -110,6 +119,8 @@ run_update() {
     "WINTIX_CONFIGURATION_FILE=$TEST_ROOT/configuration"
     "FAKE_NIX_UPDATE_MODE=$mode"
     "FAKE_NIX_CHECK_MODE=${FAKE_NIX_CHECK_MODE:-pass}"
+    "FAKE_SUDO_MODE=${FAKE_SUDO_MODE:-pass}"
+    "FAKE_GIT_LOG=${FAKE_GIT_LOG:-0}"
     "FAKE_REBUILD_MODE=${FAKE_REBUILD_MODE:-pass}"
     "FAKE_REBUILD_REPO=$repo"
     "FAKE_RECONCILE_MODE=${FAKE_RECONCILE_MODE:-pass}"
@@ -175,6 +186,24 @@ assert_clean() {
 write_fake_tools
 printf 'work-laptop\n' > "$TEST_ROOT/configuration"
 
+# Root invocation is rejected before any user-owned path or update operation.
+# Nix's build sandbox may deny user namespaces; there we mock only `id -u`,
+# while production continues to query the actual effective UID.
+if unshare --user --map-root-user -- true >/dev/null 2>&1; then
+  root_command=(unshare --user --map-root-user -- env EUID=1000)
+else
+  printf 'id() { printf "0\\n"; }\n' >"$TEST_ROOT/root-bash-env"
+  root_command=(env EUID=1000 BASH_ENV="$TEST_ROOT/root-bash-env")
+fi
+set +e
+"${root_command[@]}" WINTIX_PATH="$TEST_ROOT/root-home/.wintix" WINTIX_CONFIGURATION_FILE="$TEST_ROOT/configuration" \
+  bash "$UPDATE_SCRIPT" >"$TEST_ROOT/root-stdout" 2>"$TEST_ROOT/root-stderr"
+root_rc=$?
+set -e
+(( root_rc != 0 ))
+grep -F 'run this command as your normal user' "$TEST_ROOT/root-stderr" >/dev/null
+[[ ! -e $TEST_ROOT/root-home ]]
+
 # Preflight rejects tracked changes, untracked files, and non-master branches.
 repo=$(make_repo dirty)
 printf 'changed\n' > "$repo/flake.nix"
@@ -207,20 +236,39 @@ assert_contains "$RUN_STDERR" 'configure user.name and user.email'
 [[ $(git -C "$repo" rev-parse HEAD) == $(git -C "$repo" rev-parse origin/master) ]]
 assert_clean "$repo"
 
+# Credential validation is the first privileged action. A failure happens
+# before fetch, flake mutation/check, rebuild, reconciliation, commit, or push.
+repo=$(make_repo sudo-failure)
+before_head=$(git -C "$repo" rev-parse HEAD)
+before_lock=$(sha256sum "$repo/flake.lock")
+before_remote=$(git -C "$repo" rev-parse refs/remotes/origin/master)
+FAKE_SUDO_MODE=fail run_update "$repo" lock
+assert_failure
+assert_contains "$RUN_STDERR" 'could not validate administrator privileges'
+[[ $(git -C "$repo" rev-parse HEAD) == "$before_head" ]]
+[[ $(sha256sum "$repo/flake.lock") == "$before_lock" ]]
+[[ $(git -C "$repo" rev-parse refs/remotes/origin/master) == "$before_remote" ]]
+assert_clean "$repo"
+[[ $(<"$FAKE_LOG") == 'sudo -v' ]]
+
 # Equal local and remote is accepted, and the rebuild still runs on the
 # no-change path without creating a commit.
 repo=$(make_repo equal)
 before=$(git -C "$repo" rev-parse HEAD)
-run_update "$repo"
+FAKE_GIT_LOG=1 run_update "$repo"
 assert_success
 assert_contains "$RUN_STDOUT" 'Wintix is already up to date.'
 [[ $(git -C "$repo" rev-parse HEAD) == "$before" ]]
 assert_contains "$FAKE_LOG" 'nixos-rebuild'
 assert_contains "$FAKE_LOG" '#work-laptop'
 assert_contains "$FAKE_LOG" 'plasma-reconcile'
+sudo_line=$(grep -n '^sudo -v$' "$FAKE_LOG" | cut -d: -f1)
+fetch_line=$(grep -n '^git -C .* fetch origin master$' "$FAKE_LOG" | cut -d: -f1)
+nix_update_line=$(grep -n '^nix flake update' "$FAKE_LOG" | cut -d: -f1)
+nix_check_line=$(grep -n '^nix flake check' "$FAKE_LOG" | cut -d: -f1)
 rebuild_line=$(grep -n '^nixos-rebuild ' "$FAKE_LOG" | cut -d: -f1)
 reconcile_line=$(grep -n '^plasma-reconcile$' "$FAKE_LOG" | cut -d: -f1)
-(( rebuild_line < reconcile_line ))
+(( sudo_line < fetch_line && sudo_line < nix_update_line && sudo_line < nix_check_line && sudo_line < rebuild_line && rebuild_line < reconcile_line ))
 assert_clean "$repo"
 
 # A behind checkout fast-forwards before the update pipeline continues.
@@ -239,7 +287,7 @@ git -C "$repo" commit --quiet -m 'local change'
 run_update "$repo"
 assert_failure
 assert_contains "$RUN_STDERR" 'commits not present on origin/master'
-[[ ! -s "$FAKE_LOG" ]]
+[[ $(<"$FAKE_LOG") == 'sudo -v' ]]
 
 repo=$(make_repo diverged)
 printf 'local\n' > "$repo/local.txt"
@@ -249,7 +297,7 @@ advance_remote "$repo" diverged-remote
 run_update "$repo"
 assert_failure
 assert_contains "$RUN_STDERR" 'have diverged'
-[[ ! -s "$FAKE_LOG" ]]
+[[ $(<"$FAKE_LOG") == 'sudo -v' ]]
 
 # A lock-only update is accepted and commits/pushes only flake.lock.
 repo=$(make_repo lock-only)

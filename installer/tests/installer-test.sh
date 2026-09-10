@@ -134,6 +134,18 @@ write_fake_commands() {
 }
 
 write_fake_commands
+
+# The installer remains root-only. Setting EUID in the environment must not
+# make a normal caller appear privileged.
+if [[ $(id -u) -ne 0 ]]; then
+  set +e
+  env EUID=0 PATH="$PATH" bash "$SCRIPT_DIR/install.sh" >"$TEST_ROOT/installer-root-out" 2>"$TEST_ROOT/installer-root-err"
+  installer_root_rc=$?
+  set -e
+  (( installer_root_rc != 0 ))
+  grep -F 'Run the installer as root.' "$TEST_ROOT/installer-root-err" >/dev/null
+fi
+
 source "$SCRIPT_DIR/helpers.sh"
 source "$SCRIPT_DIR/disk.sh"
 source "$SCRIPT_DIR/configurator.sh"

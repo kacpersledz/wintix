@@ -24,6 +24,23 @@ chmod +x "$TEST_ROOT/bin/systemctl"
 export PATH="$TEST_ROOT/bin:$PATH"
 export HOME="$TEST_ROOT/home"
 
+# Root invocation is rejected before it can create root-owned configuration;
+# EUID=1000 cannot override the actual effective UID in the user namespace.
+if unshare --user --map-root-user -- true >/dev/null 2>&1; then
+  root_command=(unshare --user --map-root-user -- env EUID=1000)
+else
+  printf 'id() { printf "0\\n"; }\n' >"$TEST_ROOT/root-bash-env"
+  root_command=(env EUID=1000 BASH_ENV="$TEST_ROOT/root-bash-env")
+fi
+set +e
+"${root_command[@]}" HOME="$TEST_ROOT/root-home" PATH="$PATH" bash "$SCRIPT_DIR/wintix-secrets-bootstrap.sh" \
+  >"$TEST_ROOT/root-stdout" 2>"$TEST_ROOT/root-stderr" </dev/null
+root_rc=$?
+set -e
+(( root_rc != 0 ))
+grep -F 'run this command as your normal user' "$TEST_ROOT/root-stderr" >/dev/null
+[[ ! -e $TEST_ROOT/root-home ]]
+
 run() {
   stdout=$TEST_ROOT/stdout stderr=$TEST_ROOT/stderr
   if printf '%s\n' "$1" | bash "$SCRIPT_DIR/wintix-secrets-bootstrap.sh" >"$stdout" 2>"$stderr"; then rc=0; else rc=$?; fi

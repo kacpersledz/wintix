@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 preflight() {
-  [[ ${EUID} -eq 0 ]] || die "Run the installer as root."
+  [[ $(id -u) -eq 0 ]] || die "Run the installer as root."
   [[ $(uname -m) == x86_64 ]] || die "Only x86_64 is currently supported."
   [[ -d /sys/firmware/efi ]] || die "UEFI boot is required."
   [[ -e /sys/firmware/efi/efivars ]] || die "EFI variables are unavailable; boot the installer in UEFI mode."

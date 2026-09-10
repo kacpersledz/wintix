@@ -28,6 +28,23 @@ printf 'ssh-ed25519 generated-%s %s\n' "${key##*/}" "$comment" > "$key.pub"
 FAKE
 chmod +x "$root/bin/ssh-keygen"
 
+# Root is rejected before prompting or creating Git/SSH state. The namespace
+# gives Bash a real root effective UID while the EUID environment is misleading.
+if unshare --user --map-root-user -- true >/dev/null 2>&1; then
+  root_command=(unshare --user --map-root-user -- env EUID=1000)
+else
+  printf 'id() { printf "0\\n"; }\n' >"$root/root-bash-env"
+  root_command=(env EUID=1000 BASH_ENV="$root/root-bash-env")
+fi
+set +e
+"${root_command[@]}" HOME="$root/root-home" PATH="$root/bin:$PATH" \
+  bash "$(dirname "$0")/../wintix-work-bootstrap.sh" >"$root/root-output" 2>"$root/root-error" </dev/null
+root_rc=$?
+set -e
+(( root_rc != 0 ))
+grep -F 'run this command as your normal user' "$root/root-error" >/dev/null
+[[ ! -e $root/root-home ]]
+
 run_bootstrap() {
   printf 'Personal User\npersonal@example.invalid\nWork User\nwork@example.invalid\n' |
     HOME="$root/home" XDG_CONFIG_HOME="$root/home/.config" \

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $(id -u) -eq 0 ]]; then
+  printf 'wintix-update: run this command as your normal user; it will request administrator privileges when needed\n' >&2
+  exit 1
+fi
+
 WINTIX_PATH="${WINTIX_PATH:-$HOME/.wintix}"
 WINTIX_CONFIGURATION_FILE=${WINTIX_CONFIGURATION_FILE:-/etc/wintix/configuration}
 STATUS_FILE=$(mktemp)
@@ -99,6 +104,10 @@ require_staged_only_lockfile() {
 }
 
 require_clean "working tree is dirty; commit or remove all tracked, staged, and untracked changes first"
+
+if ! sudo -v; then
+  die "could not validate administrator privileges; no repository changes were made"
+fi
 
 if ! git -C "$WINTIX_PATH" fetch origin master; then
   die "could not fetch origin/master"

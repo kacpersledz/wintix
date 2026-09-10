@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $(id -u) -eq 0 ]]; then
+  printf 'wintix-secrets-bootstrap: run this command as your normal user; it operates on user-owned secret material.\n' >&2
+  exit 1
+fi
+
 key_dir=${XDG_CONFIG_HOME:-"$HOME/.config"}/sops/age
 key_file=$key_dir/keys.txt
 

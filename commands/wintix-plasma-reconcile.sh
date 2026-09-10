@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $(id -u) -eq 0 ]]; then
+  printf 'wintix-plasma-reconcile: run this command as your normal user; it operates on your Plasma session.\n' >&2
+  exit 1
+fi
+
 GDBUS=${WINTIX_GDBUS:-gdbus}
 JQ=${WINTIX_JQ:-jq}
 STRUCTURE_SCRIPT=${WINTIX_PLASMA_STRUCTURE_SCRIPT:-@structureScript@}
