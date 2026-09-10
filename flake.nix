@@ -47,7 +47,6 @@
         git
         nix
         nixos-rebuild
-        sudo
       ];
       wintixPlasmaReconcile = pkgs.writeShellApplication {
         name = "wintix-plasma-reconcile";
