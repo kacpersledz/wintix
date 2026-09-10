@@ -14,10 +14,13 @@ const types = [
 const ids = [103, 204, 305, 406, 507, 608, 709];
 const launchers = ["applications:brave-browser.desktop", "applications:org.kde.dolphin.desktop", "applications:org.kde.konsole.desktop"];
 
-function makeWidget(panel, type, id, config = {}) {
+function makeWidget(panel, type, id, config = {}, options = {}) {
   return { type, id, config: {...config}, writes: [], reloads: 0, removed: false,
     readConfig(key, fallback) { return Object.hasOwn(this.config, key) ? this.config[key] : fallback; },
-    writeConfig(key, value) { this.config[key] = value; this.writes.push([key, value]); },
+    writeConfig(key, value) {
+      this.writes.push([key, value]);
+      if (!options.rejectConfigKeys?.includes(key)) this.config[key] = value;
+    },
     reloadConfig() { this.reloads++; },
     remove() {
       this.removed = true;
@@ -51,14 +54,14 @@ function makePanel(initialTypes = types, initialIds = ids, options = {}) {
     },
     widgetById(id) { return this.items.find(item => item.id === id && !item.removed); },
     addWidget(type) {
-      const added = makeWidget(this, type, this.nextId++);
+      const added = makeWidget(this, type, this.nextId++, {}, options);
       this.items.push(added);
       this.visualIds.push(added.id);
       this.pendingDeferredSave = true;
       return added;
     },
   };
-  panel.items = initialTypes.map((type, index) => makeWidget(panel, type, initialIds[index], options.configs?.[index]));
+  panel.items = initialTypes.map((type, index) => makeWidget(panel, type, initialIds[index], options.configs?.[index], options));
   return panel;
 }
 function run(script, panel) {
@@ -155,8 +158,18 @@ for (const script of [structure, order]) {
 
 const managedTrayItems = ["org.kde.plasma.notifications", "org.kde.plasma.weather", "org.kde.plasma.battery"];
 const healthyKnownItems = ["org.kde.plasma.clipboard", ...managedTrayItems, "org.kde.plasma.bluetooth"];
-function settingsPanel(taskConfig, trayConfig) {
-  return makePanel(types, ids, {configs:[{},{},taskConfig,{},{...trayConfig}]});
+function qmlList(values) {
+  const proxy = {length: values.length};
+  values.forEach((value, index) => { proxy[index] = value; });
+  Object.defineProperties(proxy, {
+    constructor: {value: Array},
+    toJSON: {value: () => values.slice()},
+    toString: {value: () => values.join(",")},
+  });
+  return proxy;
+}
+function settingsPanel(taskConfig, trayConfig, options = {}) {
+  return makePanel(types, ids, {...options, configs:[{},{},taskConfig,{},{...trayConfig}]});
 }
 
 // The Plasma 6.6 System Tray top-level widget directly owns tray settings.
@@ -181,6 +194,7 @@ function settingsPanel(taskConfig, trayConfig) {
   assert.deepEqual(JSON.parse(JSON.stringify(tray.config.knownItems)), healthyKnownItems);
   assert.ok(tray.writes.every(([key]) => key !== "extraItems"));
 }
+// Qt/QML list proxies are not native JavaScript arrays, but must still be parsed.
 // The precise legacy fingerprint repairs composition once, from knownItems order.
 {
   const knownItems = [
@@ -195,13 +209,18 @@ function settingsPanel(taskConfig, trayConfig) {
   const panel = settingsPanel(
     {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
     {
-      shownItems:managedTrayItems.join(","),
-      hiddenItems:"other",
-      extraItems:managedTrayItems.join(","),
-      knownItems:knownItems.join(","),
+      shownItems:qmlList(managedTrayItems),
+      hiddenItems:qmlList(["other"]),
+      extraItems:qmlList(managedTrayItems),
+      knownItems:qmlList(knownItems),
     },
   );
   const tray = panel.widgets(types[4])[0];
+  for (const key of ["shownItems", "hiddenItems", "extraItems", "knownItems"]) {
+    assert.equal(Array.isArray(tray.config[key]), false);
+    assert.equal(typeof tray.config[key], "object");
+    assert.equal(typeof tray.config[key].length, "number");
+  }
   assert.equal(run(settings, panel), "changed");
   assert.deepEqual(JSON.parse(JSON.stringify(tray.config.extraItems)), knownItems);
   assert.deepEqual(JSON.parse(JSON.stringify(tray.writes.filter(([key]) => key === "extraItems"))), [["extraItems", knownItems]]);
@@ -209,6 +228,40 @@ function settingsPanel(taskConfig, trayConfig) {
   const writes = tray.writes.length;
   assert.equal(run(settings, panel), "unchanged");
   assert.equal(tray.writes.length, writes); assert.equal(tray.reloads, 1);
+}
+// Every Wintix-owned write must be observable immediately through readConfig.
+{
+  const healthyTray = {shownItems:managedTrayItems, hiddenItems:["other"], extraItems:["composition"], knownItems:healthyKnownItems};
+  for (const [key, value] of [
+    ["groupingStrategy", 1],
+    ["separateLaunchers", true],
+    ["interactiveMute", true],
+    ["launchers", []],
+  ]) {
+    const taskConfig = {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers};
+    taskConfig[key] = value;
+    const taskWriteFailure = settingsPanel(taskConfig, healthyTray, {rejectConfigKeys:[key]});
+    assert.match(run(settings, taskWriteFailure), new RegExp("WINTIX_ERROR:.*failed to persist " + key));
+  }
+
+  const shownWriteFailure = settingsPanel(
+    {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
+    {...healthyTray, shownItems:["other"]}, {rejectConfigKeys:["shownItems"]},
+  );
+  assert.match(run(settings, shownWriteFailure), /WINTIX_ERROR:.*failed to persist shownItems/);
+
+  const hiddenWriteFailure = settingsPanel(
+    {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
+    {...healthyTray, hiddenItems:["other", "org.kde.plasma.weather"]}, {rejectConfigKeys:["hiddenItems"]},
+  );
+  assert.match(run(settings, hiddenWriteFailure), /WINTIX_ERROR:.*failed to persist hiddenItems/);
+
+  const migrationWriteFailure = settingsPanel(
+    {groupingStrategy:0, separateLaunchers:false, interactiveMute:false, launchers},
+    {shownItems:managedTrayItems, hiddenItems:["other"], extraItems:managedTrayItems, knownItems:healthyKnownItems},
+    {rejectConfigKeys:["extraItems"]},
+  );
+  assert.match(run(settings, migrationWriteFailure), /WINTIX_ERROR:.*failed to persist extraItems/);
 }
 // Custom and ambiguous composition states are not Wintix-owned.
 for (const [extraItems, knownItems] of [

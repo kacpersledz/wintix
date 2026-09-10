@@ -16,6 +16,13 @@
 
     function asList(value) {
         if (Array.isArray(value)) return value.slice();
+        if (value && typeof value === "object" &&
+            typeof value.length === "number" && isFinite(value.length) &&
+            value.length >= 0 && Math.floor(value.length) === value.length) {
+            const result = [];
+            for (let i = 0; i < value.length; ++i) result.push(String(value[i]));
+            return result;
+        }
         if (typeof value === "string" && value.length > 0) return value.split(",");
         return [];
     }
@@ -49,6 +56,9 @@
             const key = keys[i];
             if (!equal(widget.readConfig(key, ""), desired[key])) {
                 widget.writeConfig(key, desired[key]);
+                if (!equal(widget.readConfig(key, Array.isArray(desired[key]) ? [] : ""), desired[key])) {
+                    throw new Error("failed to persist " + key);
+                }
                 changed = true;
             }
         }
@@ -89,10 +99,16 @@
         let trayChanged = false;
         if (!equal(shown, desiredShown)) {
             tray.writeConfig("shownItems", desiredShown);
+            if (!equal(tray.readConfig("shownItems", []), desiredShown)) {
+                throw new Error("failed to persist shownItems");
+            }
             trayChanged = true;
         }
         if (!equal(hidden, desiredHidden)) {
             tray.writeConfig("hiddenItems", desiredHidden);
+            if (!equal(tray.readConfig("hiddenItems", []), desiredHidden)) {
+                throw new Error("failed to persist hiddenItems");
+            }
             trayChanged = true;
         }
         const extraItems = asList(tray.readConfig("extraItems", []));
@@ -101,6 +117,9 @@
             hasAdditionalKnownItem(knownItems) &&
             hasAllItems(knownItems, alwaysShownItems)) {
             tray.writeConfig("extraItems", knownItems);
+            if (!equal(tray.readConfig("extraItems", []), knownItems)) {
+                throw new Error("failed to persist extraItems");
+            }
             trayChanged = true;
         }
         if (trayChanged) tray.reloadConfig();
