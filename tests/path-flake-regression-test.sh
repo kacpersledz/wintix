@@ -9,7 +9,7 @@ root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
 # placeholder stubs.
 grep -F 'nixos-install --root "$MOUNT_POINT" --flake "path:$checkout#$SELECTED_HOST"' \
   "$root/installer/install-system.sh"
-grep -F 'exec sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATION"' \
+grep -F 'sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATION"' \
   "$root/commands/wintix-rebuild.sh"
 grep -F 'nix flake check "path:$WINTIX_PATH"' \
   "$root/commands/wintix-update.sh"

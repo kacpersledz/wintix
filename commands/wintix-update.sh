@@ -145,6 +145,10 @@ if ! sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATI
   die "nixos-rebuild failed; no commit or push was performed; flake.lock was left available for inspection"
 fi
 
+if ! wintix-plasma-reconcile; then
+  die "Plasma reconciliation failed; no commit or push was performed; flake.lock was left available for inspection"
+fi
+
 require_only_lockfile "unexpected Git changes after rebuild; only flake.lock may be modified"
 
 if [[ ! -s "$STATUS_FILE" ]]; then

@@ -22,4 +22,9 @@ fi
 # The checkout intentionally marks machine-local generated modules
 # skip-worktree. Use an explicit path flake so Nix reads their working-tree
 # contents rather than the clean Git index stubs.
-exec sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATION"
+if ! sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATION"; then
+  printf 'wintix-rebuild: nixos-rebuild failed; Plasma reconciliation was not run.\n' >&2
+  exit 1
+fi
+
+wintix-plasma-reconcile
