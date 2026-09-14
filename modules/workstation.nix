@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 {
   imports = [
     ./base.nix
@@ -19,6 +19,10 @@
     size = config.wintix.swapSizeMiB;
     priority = 1;
   };
+  environment.systemPackages = with pkgs; [
+    freerdp
+    usbutils
+  ];
   programs.zsh.enable = true;
   home-manager.useGlobalPkgs = true;
   system.stateVersion = "26.05";
