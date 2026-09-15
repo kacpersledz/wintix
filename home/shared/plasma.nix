@@ -44,6 +44,8 @@ in
 
     kscreenlocker.appearance.wallpaper = pathWallpaper;
 
+    kwin.edgeBarrier = 40;
+
     kwin.nightLight = {
       enable = true;
       mode = "location";
