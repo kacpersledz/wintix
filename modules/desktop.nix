@@ -1,10 +1,18 @@
-{ ... }:
+{ pkgs, ... }:
 
+let
+  pathWallpaper = import ../wallpaper.nix { inherit pkgs; };
+in
 {
   services.xserver.enable = true;
 
   services.displayManager.plasma-login-manager.enable = true;
   services.desktopManager.plasma6.enable = true;
+
+  environment.etc."plasmalogin.conf".text = ''
+    [Greeter][Wallpaper][org.kde.image][General]
+    Image=file://${pathWallpaper}
+  '';
 
   services.xserver.xkb = {
     layout = "pl";
