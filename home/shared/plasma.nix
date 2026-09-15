@@ -71,6 +71,13 @@ in
       temperature.night = 3500;
     };
 
+    # KWin applies these defaults to every touchpad unless a device-specific
+    # Libinput group overrides them.
+    configFile."kcminputrc"."Libinput/Defaults/Touchpad" = {
+      NaturalScroll = true;
+      ScrollFactor = 0.3;
+    };
+
     # Plasma 6's Klipper config schema stores its history limit here.
     configFile."klipperrc".General.MaxClipItems = 999;
 
