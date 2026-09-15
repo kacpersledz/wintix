@@ -8,6 +8,7 @@ fi
 
 WINTIX_PATH="${WINTIX_PATH:-$HOME/.wintix}"
 WINTIX_CONFIGURATION_FILE=${WINTIX_CONFIGURATION_FILE:-/etc/wintix/configuration}
+WINTIX_USER_PROFILE=${WINTIX_USER_PROFILE:-/etc/profiles/per-user/$(id -un)}
 
 if [[ ! -f $WINTIX_CONFIGURATION_FILE ]]; then
   printf 'wintix-rebuild: missing installed configuration selector: %s\n' "$WINTIX_CONFIGURATION_FILE" >&2
@@ -45,4 +46,12 @@ if ! sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATI
   exit 1
 fi
 
-wintix-plasma-reconcile
+# This command may itself be from the generation that initiated the switch.
+# Reconcile through the newly activated per-user profile, not an immutable
+# runtime dependency from the old command package.
+RECONCILER="$WINTIX_USER_PROFILE/bin/wintix-plasma-reconcile"
+if [[ ! -x $RECONCILER ]]; then
+  printf 'wintix-rebuild: newly activated Plasma reconciler is unavailable: %s\n' "$RECONCILER" >&2
+  exit 1
+fi
+"$RECONCILER"
