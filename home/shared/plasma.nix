@@ -1,10 +1,25 @@
-{ pkgs, ... }:
+{ pkgs, lib, config, ... }:
 
 let
   pathWallpaper = import ../../wallpaper.nix { inherit pkgs; };
 in
 {
-  programs.plasma = {
+  options.wintix.plasma.launchers = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = "Ordered desktop-entry IDs pinned to the Plasma task manager.";
+  };
+
+  config.wintix.plasma.launchers = [
+    "applications:brave-browser.desktop"
+    "applications:org.kde.dolphin.desktop"
+    "applications:org.kde.konsole.desktop"
+  ];
+
+  config.xdg.configFile."wintix/plasma-launchers.json".text =
+    builtins.toJSON { launchers = config.wintix.plasma.launchers; };
+
+  config.programs.plasma = {
     enable = true;
     # Keep Plasma configuration hybrid: only the settings below are managed.
     overrideConfig = false;

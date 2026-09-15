@@ -3,6 +3,7 @@ set -euo pipefail
 root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 fake_gdbus="$tmp/gdbus"; fake_jq="$tmp/jq"; log="$tmp/log"
+printf '%s\n' '{"launchers":["applications:brave-browser.desktop","applications:org.kde.dolphin.desktop","applications:org.kde.konsole.desktop"]}' >"$tmp/launchers.json"
 
 cat >"$tmp/structure.js" <<'JS'
 structure line one
@@ -23,6 +24,16 @@ JS
 printf '#!%s\n' "$(command -v bash)" >"$fake_jq"
 cat >>"$fake_jq" <<'FAKE_JQ'
 set -euo pipefail
+if [[ $1 == -ce ]]; then
+  exec node -e '
+    const fs = require("node:fs");
+    const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const ids = value.launchers;
+    if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length ||
+        !ids.every(id => typeof id === "string" && /^applications:[^/\s]+\.desktop$/.test(id))) process.exit(1);
+    process.stdout.write(JSON.stringify(ids) + "\n");
+  ' "${@: -1}"
+fi
 [[ $1 == -Rs && $2 == . && $# == 2 ]]
 exec node -e 'let value=""; process.stdin.setEncoding("utf8"); process.stdin.on("data", chunk => value += chunk); process.stdin.on("end", () => process.stdout.write(JSON.stringify(value) + "\n"));'
 FAKE_JQ
@@ -46,10 +57,13 @@ case $count in
   *) exit 9 ;;
 esac
 actual=${!#}
-ACTUAL_ARG=$actual EXPECTED_FILE=$expected node -e '
+ACTUAL_ARG=$actual EXPECTED_FILE=$expected COUNT=$count node -e '
   const fs = require("node:fs");
   const assert = require("node:assert/strict");
-  assert.equal(JSON.parse(process.env.ACTUAL_ARG), fs.readFileSync(process.env.EXPECTED_FILE, "utf8"));
+  const expected = fs.readFileSync(process.env.EXPECTED_FILE, "utf8");
+  assert.equal(JSON.parse(process.env.ACTUAL_ARG), process.env.COUNT === "3"
+    ? `const wintixLaunchers = ${JSON.stringify(JSON.parse(fs.readFileSync(process.env.WINTIX_PLASMA_LAUNCHERS_CONFIG, "utf8")).launchers)};\n${expected}`
+    : expected);
 '
 
 [[ ${MODE:-ok} == mutation-fail && $count == 1 ]] && exit 2
@@ -89,6 +103,7 @@ run() {
     WINTIX_PLASMA_STRUCTURE_SCRIPT="$tmp/structure.js" \
     WINTIX_PLASMA_ORDER_SCRIPT="$tmp/order.js" \
     WINTIX_PLASMA_SETTINGS_SCRIPT="$tmp/settings.js" \
+    WINTIX_PLASMA_LAUNCHERS_CONFIG="$tmp/launchers.json" \
     bash "$root/commands/wintix-plasma-reconcile.sh" >"$tmp/out" 2>"$tmp/err"
   rc=$?
   set -e
@@ -113,4 +128,8 @@ run mutation-fail; [[ $rc != 0 ]]; [[ $(grep -c '^evaluate ' "$log") == 1 ]]
 run mutation-error; [[ $rc != 0 ]]; grep -q 'mutation rejected' "$tmp/err"; [[ $(grep -c '^evaluate ' "$log") == 1 ]]
 run order-fail; [[ $rc != 0 ]]; grep -q 'order rejected' "$tmp/err"; [[ $(grep -c '^evaluate ' "$log") == 2 ]]
 run settings-fail; [[ $rc != 0 ]]; [[ $(grep -c '^evaluate ' "$log") == 3 ]]
+printf '%s\n' '{"launchers":["applications:bad.desktop",42]}' >"$tmp/launchers.json"
+run ok; [[ $rc != 0 ]]; grep -q 'malformed launcher config' "$tmp/err"; ! grep -q '^evaluate ' "$log"
+rm "$tmp/launchers.json"
+run ok; [[ $rc != 0 ]]; grep -q 'launcher config is missing' "$tmp/err"; ! grep -q '^evaluate ' "$log"
 printf 'wintix-plasma-reconcile tests passed\n'

@@ -3,11 +3,8 @@
 (function () {
     try {
         const result = (function () {
-    const launchers = [
-        "applications:brave-browser.desktop",
-        "applications:org.kde.dolphin.desktop",
-        "applications:org.kde.konsole.desktop",
-    ];
+    // The executor supplies the Home Manager launcher policy before this script.
+    const launchers = wintixLaunchers;
     const alwaysShownItems = [
         "org.kde.plasma.notifications",
         "org.kde.plasma.weather",

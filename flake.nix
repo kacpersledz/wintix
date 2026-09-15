@@ -232,13 +232,33 @@
           bash ${./tests}/architecture-test.sh ${./.}
           touch "$out"
         '';
-        plasma-panel = pkgs.runCommand "wintix-plasma-panel-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils gnugrep jq nodejs ripgrep util-linux ];
-        } ''
-          bash ${./tests}/plasma-panel-test.sh ${./.}
-          bash ${./commands}/tests/wintix-plasma-reconcile-test.sh ${./.}
-          touch "$out"
-        '';
+        plasma-panel =
+          let
+            desktopHome = self.nixosConfigurations.desktop.config.home-manager.users.january;
+            workHome = self.nixosConfigurations.work-laptop.config.home-manager.users.ksledz;
+            sharedLaunchers = [
+              "applications:brave-browser.desktop"
+              "applications:org.kde.dolphin.desktop"
+              "applications:org.kde.konsole.desktop"
+            ];
+            workLaunchers = sharedLaunchers ++ [
+              "applications:thunderbird.desktop"
+              "applications:md.obsidian.Obsidian.desktop"
+              "applications:slack.desktop"
+              "applications:code.desktop"
+            ];
+          in
+          assert desktopHome.wintix.plasma.launchers == sharedLaunchers;
+          assert workHome.wintix.plasma.launchers == workLaunchers;
+          assert builtins.hasAttr "wintix/plasma-launchers.json" desktopHome.xdg.configFile;
+          assert builtins.hasAttr "wintix/plasma-launchers.json" workHome.xdg.configFile;
+          pkgs.runCommand "wintix-plasma-panel-test" {
+            nativeBuildInputs = with pkgs; [ bash coreutils gnugrep jq nodejs ripgrep util-linux ];
+          } ''
+            bash ${./tests}/plasma-panel-test.sh ${./.}
+            bash ${./commands}/tests/wintix-plasma-reconcile-test.sh ${./.}
+            touch "$out"
+          '';
         installer = pkgs.runCommand "wintix-installer-test" {
           nativeBuildInputs = with pkgs; [
             bash
