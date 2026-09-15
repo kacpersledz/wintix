@@ -5,9 +5,10 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 UPDATE_SCRIPT="$SCRIPT_DIR/wintix-update.sh"
 TEST_ROOT=$(mktemp -d)
 TEST_BIN="$TEST_ROOT/bin"
+TEST_USER_PROFILE="$TEST_ROOT/user-profile"
 FAKE_LOG="$TEST_ROOT/fake.log"
 REAL_GIT=$(command -v git)
-mkdir -p "$TEST_BIN"
+mkdir -p "$TEST_BIN" "$TEST_USER_PROFILE/bin"
 
 cleanup() {
   rm -rf -- "$TEST_ROOT"
@@ -73,8 +74,8 @@ write_fake_tools() {
 
   printf '%s\n' '#!/bin/sh' \
     'printf "plasma-reconcile\n" >> "$FAKE_LOG"' \
-    '[ "${FAKE_RECONCILE_MODE:-pass}" = pass ]' > "$TEST_BIN/wintix-plasma-reconcile"
-  chmod +x "$TEST_BIN/wintix-plasma-reconcile"
+    '[ "${FAKE_RECONCILE_MODE:-pass}" = pass ]' > "$TEST_USER_PROFILE/bin/wintix-plasma-reconcile"
+  chmod +x "$TEST_USER_PROFILE/bin/wintix-plasma-reconcile"
 }
 
 make_repo() {
@@ -117,6 +118,7 @@ run_update() {
   local -a run_environment=(
     "WINTIX_PATH=$repo"
     "WINTIX_CONFIGURATION_FILE=$TEST_ROOT/configuration"
+    "WINTIX_USER_PROFILE=$TEST_USER_PROFILE"
     "FAKE_NIX_UPDATE_MODE=$mode"
     "FAKE_NIX_CHECK_MODE=${FAKE_NIX_CHECK_MODE:-pass}"
     "FAKE_SUDO_MODE=${FAKE_SUDO_MODE:-pass}"
