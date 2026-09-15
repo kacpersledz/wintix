@@ -11,6 +11,9 @@
   networking.networkmanager.plugins = with pkgs; [
     networkmanager-openvpn
   ];
+  systemd.sleep.settings.Sleep = {
+    HibernateMode = "shutdown";
+  };
   wintix.configuration = lib.mkDefault "work-laptop";
   users.users.ksledz = {
     isNormalUser = true;
