@@ -8,4 +8,17 @@
     pkgs.obsidian
     unstablePkgs.slack
   ];
+
+  # Obsidian identifies its native Wayland window as md.obsidian.Obsidian,
+  # while nixpkgs installs obsidian.desktop. Provide the matching desktop ID
+  # so Plasma can resolve the running window to Obsidian's icon.
+  xdg.desktopEntries."md.obsidian.Obsidian" = {
+    name = "Obsidian";
+    exec = "${pkgs.obsidian}/bin/obsidian %u";
+    icon = "obsidian";
+    terminal = false;
+    noDisplay = true;
+
+    settings.StartupWMClass = "md.Obsidian";
+  };
 }
