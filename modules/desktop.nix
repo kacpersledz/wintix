@@ -2,22 +2,16 @@
 
 let
   pathWallpaper = import ../wallpaper.nix { inherit pkgs; };
-  sddmTheme = pkgs.runCommand "wintix-sddm-theme" { } ''
-    mkdir -p "$out/share/sddm/themes"
-    cp -r ${pkgs.kdePackages.plasma-desktop}/share/sddm/themes/breeze "$out/share/sddm/themes/wintix"
-    chmod -R u+w "$out/share/sddm/themes/wintix"
-    cat > "$out/share/sddm/themes/wintix/theme.conf.user" <<EOF
-    [General]
-    background=${pathWallpaper}
-    EOF
-  '';
 in
 {
   services.xserver.enable = true;
 
-  services.displayManager.sddm = {
+  services.displayManager.plasma-login-manager = {
     enable = true;
-    theme = "${sddmTheme}/share/sddm/themes/wintix";
+    settings = {
+      Greeter.WallpaperPluginId = "org.kde.image";
+      "Greeter][Wallpaper][org.kde.image][General".Image = "file://${pathWallpaper}";
+    };
   };
   services.desktopManager.plasma6.enable = true;
 
