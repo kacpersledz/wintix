@@ -8,6 +8,7 @@ fi
 
 WINTIX_PATH="${WINTIX_PATH:-$HOME/.wintix}"
 WINTIX_CONFIGURATION_FILE=${WINTIX_CONFIGURATION_FILE:-/etc/wintix/configuration}
+WINTIX_USER_PROFILE=${WINTIX_USER_PROFILE:-/etc/profiles/per-user/$(id -un)}
 STATUS_FILE=$(mktemp)
 STAGED_FILE=$(mktemp)
 trap 'rm -f -- "$STATUS_FILE" "$STAGED_FILE"' EXIT
@@ -154,7 +155,14 @@ if ! sudo "$NIXOS_REBUILD" switch --flake "path:$WINTIX_PATH#$WINTIX_CONFIGURATI
   die "nixos-rebuild failed; no commit or push was performed; flake.lock was left available for inspection"
 fi
 
-if ! wintix-plasma-reconcile; then
+# The updater itself may be from the generation that initiated this switch.
+# Resolve reconciliation through the newly activated per-user profile instead
+# of inheriting a stale reconciler from the updater's immutable Nix PATH.
+RECONCILER="$WINTIX_USER_PROFILE/bin/wintix-plasma-reconcile"
+if [[ ! -x $RECONCILER ]]; then
+  die "newly activated Plasma reconciler is unavailable: $RECONCILER"
+fi
+if ! "$RECONCILER"; then
   die "Plasma reconciliation failed; no commit or push was performed; flake.lock was left available for inspection"
 fi
 
