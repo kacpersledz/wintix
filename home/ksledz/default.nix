@@ -11,6 +11,17 @@
   home.username = "ksledz";
   home.homeDirectory = "/home/ksledz";
   home.stateVersion = "26.05";
+
+  programs.plasma.input.mice = [
+    {
+      name = "Dell Mouse MS5320W Mouse";
+      vendorId = "413c";
+      productId = "250a";
+      acceleration = -0.70;
+      accelerationProfile = "default";
+    }
+  ];
+
   programs.git.includes = [
     {
       condition = "gitdir:~/.wintix/";
