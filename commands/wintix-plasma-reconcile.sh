@@ -11,6 +11,7 @@ JQ=${WINTIX_JQ:-jq}
 STRUCTURE_SCRIPT=${WINTIX_PLASMA_STRUCTURE_SCRIPT:-@structureScript@}
 ORDER_SCRIPT=${WINTIX_PLASMA_ORDER_SCRIPT:-@orderScript@}
 SETTINGS_SCRIPT=${WINTIX_PLASMA_SETTINGS_SCRIPT:-@settingsScript@}
+LAUNCHERS_CONFIG=${WINTIX_PLASMA_LAUNCHERS_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/wintix/plasma-launchers.json}
 
 skip() {
   printf 'Wintix Plasma reconciliation skipped: no live Plasma session.\n'
@@ -28,9 +29,23 @@ if ! owner=$($GDBUS call --session \
 fi
 [[ $owner == *true* ]] || skip
 
+if [[ ! -f $LAUNCHERS_CONFIG ]]; then
+  printf 'wintix-plasma-reconcile: launcher config is missing: %s\n' "$LAUNCHERS_CONFIG" >&2
+  exit 1
+fi
+if ! launchers_json=$($JQ -ce '.launchers | if type == "array" and length > 0 and all(.[]; type == "string" and test("^applications:[^/[:space:]]+\\.desktop$")) and (unique | length) == length then . else error("invalid launchers") end' "$LAUNCHERS_CONFIG"); then
+  printf 'wintix-plasma-reconcile: malformed launcher config: %s\n' "$LAUNCHERS_CONFIG" >&2
+  exit 1
+fi
+
 evaluate() {
   local phase=$1 script=$2 script_arg output result
-  if ! script_arg=$($JQ -Rs . < "$script"); then
+  if [[ $phase == settings ]]; then
+    if ! script_arg=$( { printf 'const wintixLaunchers = %s;\n' "$launchers_json"; cat "$script"; } | "$JQ" -Rs .); then
+      printf 'wintix-plasma-reconcile: could not serialize %s phase script.\n' "$phase" >&2
+      return 1
+    fi
+  elif ! script_arg=$($JQ -Rs . < "$script"); then
     printf 'wintix-plasma-reconcile: could not serialize %s phase script.\n' "$phase" >&2
     return 1
   fi

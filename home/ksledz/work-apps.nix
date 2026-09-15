@@ -1,5 +1,12 @@
-{ pkgs, unstablePkgs, ... }:
+{ pkgs, unstablePkgs, lib, ... }:
 {
+  wintix.plasma.launchers = lib.mkAfter [
+    "applications:thunderbird.desktop"
+    "applications:md.obsidian.Obsidian.desktop"
+    "applications:slack.desktop"
+    "applications:code.desktop"
+  ];
+
   # Work applications are installed here, while all account, profile, and
   # employer-specific state remains local to the machine.
   programs.thunderbird.enable = true;

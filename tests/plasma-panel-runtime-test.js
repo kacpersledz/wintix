@@ -64,9 +64,9 @@ function makePanel(initialTypes = types, initialIds = ids, options = {}) {
   panel.items = initialTypes.map((type, index) => makeWidget(panel, type, initialIds[index], options.configs?.[index], options));
   return panel;
 }
-function run(script, panel) {
+function run(script, panel, desiredLaunchers = launchers) {
   const output = [];
-  vm.runInNewContext(script, {
+  vm.runInNewContext(script === settings ? `const wintixLaunchers = ${JSON.stringify(desiredLaunchers)};\n${script}` : script, {
     panels: () => [panel],
     print: value => output.push(String(value)),
   });
@@ -289,5 +289,13 @@ for (const [extraItems, knownItems] of [
   const tray = panel.widgets(types[4])[0];
   assert.equal(run(settings, panel), "unchanged");
   assert.deepEqual(task.writes, []); assert.deepEqual(tray.writes, []); assert.equal(task.reloads, 0); assert.equal(tray.reloads, 0);
+}
+// The settings phase accepts a host-specific canonical order from the executor.
+{
+  const workLaunchers = [...launchers, "applications:thunderbird.desktop", "applications:md.obsidian.Obsidian.desktop", "applications:slack.desktop", "applications:code.desktop"];
+  const panel = settingsPanel({launchers}, {shownItems:managedTrayItems, hiddenItems:[], extraItems:[], knownItems:healthyKnownItems});
+  assert.equal(run(settings, panel, workLaunchers), "changed");
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.widgets(types[2])[0].config.launchers)), workLaunchers);
+  assert.equal(run(settings, panel, workLaunchers), "unchanged");
 }
 console.log("Plasma panel runtime tests passed");
