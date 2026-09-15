@@ -2,7 +2,7 @@
 set -euo pipefail
 root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-mkdir "$tmp/bin"; printf 'desktop\n' >"$tmp/config"
+mkdir -p "$tmp/bin" "$tmp/user-profile/bin"; printf 'desktop\n' >"$tmp/config"
 for tool in sudo nixos-rebuild wintix-plasma-reconcile; do
 printf '#!%s\n' "$(command -v bash)" >"$tmp/bin/$tool"
 cat >>"$tmp/bin/$tool" <<'FAKE'
@@ -14,7 +14,8 @@ case $(basename "$0") in
 esac
 FAKE
 chmod +x "$tmp/bin/$tool"; done
-run(){ : >"$tmp/log"; set +e; PATH="$tmp/bin:$PATH" LOG="$tmp/log" REBUILD="$1" RECONCILE="$2" SUDO_MODE="${3:-pass}" WINTIX_PATH="$root" WINTIX_CONFIGURATION_FILE="$tmp/config" bash "$root/commands/wintix-rebuild.sh" >/dev/null 2>"$tmp/err"; rc=$?; set -e; }
+ln -s "$tmp/bin/wintix-plasma-reconcile" "$tmp/user-profile/bin/wintix-plasma-reconcile"
+run(){ : >"$tmp/log"; set +e; PATH="$tmp/bin:$PATH" LOG="$tmp/log" REBUILD="$1" RECONCILE="$2" SUDO_MODE="${3:-pass}" WINTIX_PATH="$root" WINTIX_CONFIGURATION_FILE="$tmp/config" WINTIX_USER_PROFILE="$tmp/user-profile" bash "$root/commands/wintix-rebuild.sh" >/dev/null 2>"$tmp/err"; rc=$?; set -e; }
 
 # A user namespace provides a real effective UID of zero without introducing a
 # test-only production override. Even an EUID environment value cannot bypass
