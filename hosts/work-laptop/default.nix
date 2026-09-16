@@ -11,6 +11,8 @@
   networking.networkmanager.plugins = with pkgs; [
     networkmanager-openvpn
   ];
+  services.pcscd.enable = true;
+  environment.systemPackages = [ pkgs.pcsc-tools ];
   systemd.sleep.settings.Sleep = {
     HibernateMode = "shutdown";
   };
