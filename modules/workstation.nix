@@ -21,6 +21,7 @@
   };
   environment.systemPackages = with pkgs; [
     freerdp
+    unrar
     usbutils
   ];
   programs.zsh.enable = true;
