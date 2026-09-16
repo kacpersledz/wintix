@@ -60,6 +60,10 @@ in
     kscreenlocker.appearance.wallpaper = pathWallpaper;
 
     kwin.edgeBarrier = 40;
+    kwin.cornerBarrier = false;
+
+    # 9 is KWin's ElectricNone, assigning Overview to no screen edge.
+    configFile."kwinrc"."Effect-overview".BorderActivate = 9;
 
     kwin.nightLight = {
       enable = true;
