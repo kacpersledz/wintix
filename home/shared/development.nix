@@ -1,7 +1,10 @@
 { pkgs, unstablePkgs, ... }:
 
 {
-  home.packages = [ pkgs.nodejs_24 ];
+  home.packages = [
+    pkgs.nodejs_24
+    pkgs.python3
+  ];
 
   programs.vscode = {
     enable = true;
