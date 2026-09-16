@@ -63,5 +63,14 @@ grep -q 'networkmanager-openvpn' hosts/work-laptop/default.nix
 grep -q 'services.pcscd.enable = true' hosts/work-laptop/default.nix
 grep -q 'pkgs.pcsc-tools' hosts/work-laptop/default.nix
 ! rg -q 'services.pcscd|pcsc-tools' hosts/desktop modules
+test -f hosts/work-laptop/power-profile-policy.nix
+grep -q './power-profile-policy.nix' hosts/work-laptop/default.nix
+grep -q 'services.power-profiles-daemon.enable = true' hosts/work-laptop/power-profile-policy.nix
+grep -q 'desired="performance"' hosts/work-laptop/power-profile-policy.nix
+grep -q 'desired="balanced"' hosts/work-laptop/power-profile-policy.nix
+grep -q 'desired="power-saver"' hosts/work-laptop/power-profile-policy.nix
+grep -q 'capacity <= 50' hosts/work-laptop/power-profile-policy.nix
+grep -q 'subsystem-match=power_supply' hosts/work-laptop/power-profile-policy.nix
+! rg -q 'wintix-power-profile-policy|power-profile-policy.nix' hosts/desktop modules home
 bash "$root/tests/path-flake-regression-test.sh" "$root"
 printf 'architecture tests passed\n'
