@@ -33,14 +33,15 @@ grep -F 'charge_control_end_threshold' "$tmp/error" >/dev/null
 # Exercise both normal-user entry points with a fake sudo boundary. The fake
 # id makes this root-owned build sandbox behave like an unprivileged caller.
 mkdir "$tmp/bin"
-cat > "$tmp/bin/id" <<'EOF'
-#!/usr/bin/env bash
+bash_path=$(command -v bash)
+printf '#!%s\n' "$bash_path" > "$tmp/bin/id"
+cat >> "$tmp/bin/id" <<'EOF'
 printf '1000\n'
 EOF
-cat > "$tmp/bin/sudo" <<'EOF'
-#!/usr/bin/env bash
+printf '#!%s\n' "$bash_path" > "$tmp/bin/sudo"
+cat >> "$tmp/bin/sudo" <<'EOF'
 printf 'sudo %s\n' "$*" >> "$WINTIX_TEST_LOG"
-exec "$@"
+exec bash "$@"
 EOF
 chmod +x "$tmp/bin/id" "$tmp/bin/sudo"
 sed "s|@batteryChargeHelper@|$helper|" \
@@ -51,10 +52,10 @@ chmod +x "$tmp/bin/wintix-charge-full" "$tmp/bin/wintix-charge-care"
 make_battery
 export WINTIX_BATTERY_SYSFS_ROOT="$tmp/BAT0"
 export WINTIX_TEST_LOG="$tmp/sudo.log"
-PATH="$tmp/bin:$PATH" "$tmp/bin/wintix-charge-full"
+PATH="$tmp/bin:$PATH" bash "$tmp/bin/wintix-charge-full"
 [[ $(<"$tmp/BAT0/charge_control_start_threshold") == 0 ]]
 [[ $(<"$tmp/BAT0/charge_control_end_threshold") == 100 ]]
-PATH="$tmp/bin:$PATH" "$tmp/bin/wintix-charge-care"
+PATH="$tmp/bin:$PATH" bash "$tmp/bin/wintix-charge-care"
 [[ $(<"$tmp/BAT0/charge_control_start_threshold") == 70 ]]
 [[ $(<"$tmp/BAT0/charge_control_end_threshold") == 80 ]]
 [[ $(wc -l < "$tmp/sudo.log") == 2 ]]
