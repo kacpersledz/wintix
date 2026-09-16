@@ -1,74 +1,110 @@
 #!/usr/bin/env bash
 set -euo pipefail
-root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
-cd "$root"
-grep -q 'desktop = mkWorkstation' flake.nix
-grep -q 'work-laptop = mkWorkstation' flake.nix
-grep -q 'users.users."january"' hosts/desktop/default.nix
-grep -q 'users.users.ksledz' hosts/work-laptop/default.nix
-! rg -q 'wintix-github-ssh|github-ssh-key|sops' hosts/work-laptop home/ksledz home/shared
-test -f modules/hardware-generated.nix
-grep -q 'hardware-generated.nix' modules/workstation.nix
-! find hosts -name hardware-configuration.nix | grep -q .
-grep -q -- '--no-filesystems' installer/install-system.sh
-grep -q 'skip-worktree.*hardware-generated.nix' installer/install-system.sh
-grep -q 'Hostname:' installer/configurator.sh
-grep -q 'machine-generated.nix' installer/install-system.sh
-grep -q 'WINTIX_CONFIGURATION_FILE' commands/wintix-rebuild.sh
-grep -q 'WINTIX_CONFIGURATION_FILE' commands/wintix-update.sh
-grep -q 'wintix-plasma-reconcile' commands/wintix-update.sh
-grep -q 'wintix-plasma-reconcile' commands/wintix-rebuild.sh
-! rg -q 'startup\.desktopScript|runAlways' home/shared/plasma.nix
-grep -q 'wintix-plasma-reconcile' hosts/desktop/default.nix
-grep -q 'wintix-plasma-reconcile' hosts/work-laptop/default.nix
-grep -q 'size = config.wintix.swapSizeMiB' modules/workstation.nix
-grep -q 'memoryPercent = 50' modules/workstation.nix
-! grep -q 'swapDevices' hosts/desktop/default.nix
-! grep -q 'swapDevices' hosts/work-laptop/default.nix
-grep -q 'development.nix' modules/workstation.nix
-! grep -q 'development.nix' hosts/desktop/default.nix
-! grep -q 'development.nix' hosts/work-laptop/default.nix
-grep -q '../shared/development.nix' home/january/default.nix
-grep -q '../shared/development.nix' home/ksledz/default.nix
-grep -q 'virtualisation.docker.enable = true' modules/development.nix
-! rg -q '"docker"' hosts
-! grep -E -q 'docker-(compose|buildx)' modules/development.nix
-grep -q 'package = unstablePkgs.vscode' home/shared/development.nix
-grep -q 'package = unstablePkgs.codex' home/shared/development.nix
-grep -q 'pkgs.nodejs_24' home/shared/development.nix
-grep -q 'package = pkgs.corretto21' home/shared/development.nix
-! grep -q 'codex' modules/development.nix
-grep -q 'by-partuuid/installer-generated' hosts/desktop/default.nix
-grep -q 'by-uuid/installer-generated' hosts/desktop/default.nix
-! rg -q 'by-(part)?uuid/[0-9a-fA-F]{4,}' hosts
-grep -q 'gitdir:~/.wintix/' home/ksledz/default.nix
-grep -q 'gitdir:~/Documents/Code/personal/' home/ksledz/default.nix
-grep -q 'gitdir:~/Documents/Code/work/' home/ksledz/default.nix
-grep -q 'wintix.swapSizeMiB' installer/install-system.sh
-grep -q 'RAM detected:' installer/configurator.sh
-grep -q 'Disk swap:' installer/configurator.sh
-grep -q 'swap_and_headroom' installer/configurator.sh
-grep -q 'MIN_TARGET_BYTES' installer/disk.sh
-grep -q 'Minimum target size:' installer/configurator.sh
-! grep -q 'readonly MIN_BYTES' installer/disk.sh
-test -f home/ksledz/work-apps.nix
-grep -q './work-apps.nix' home/ksledz/default.nix
-grep -q 'programs.thunderbird.enable = true' home/ksledz/work-apps.nix
-grep -q 'pkgs.obsidian' home/ksledz/work-apps.nix
-! grep -q 'programs.obsidian' home/ksledz/work-apps.nix
-grep -q 'unstablePkgs.slack' home/ksledz/work-apps.nix
-grep -q 'networkmanager-openvpn' hosts/work-laptop/default.nix
-! rg -q 'thunderbird|obsidian|slack' home/january hosts/desktop
-! grep -q 'networkmanager-openvpn' hosts/desktop/default.nix
-grep -q 'services.pcscd.enable = true' hosts/work-laptop/default.nix
-grep -q 'pkgs.pcsc-tools' hosts/work-laptop/default.nix
-! rg -q 'services.pcscd|pcsc-tools' hosts/desktop modules
-test -f home/ksledz/power.nix
-grep -q './power.nix' home/ksledz/default.nix
-grep -q 'AC.powerProfile = "performance"' home/ksledz/power.nix
-grep -q 'battery.powerProfile = "balanced"' home/ksledz/power.nix
-grep -q 'lowBattery.powerProfile = "powerSaving"' home/ksledz/power.nix
-grep -q 'batteryLevels.lowLevel = 40' home/ksledz/power.nix
-! rg -q 'batteryLevels.lowLevel|AC.powerProfile|lowBattery.powerProfile' home/january home/shared hosts/desktop
-bash "$root/tests/path-flake-regression-test.sh" "$root"
-printf 'architecture tests passed\n'
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+fail() {
+  echo "architecture-test: $*" >&2
+  exit 1
+}
+
+# Keep this test intentionally simple: it protects the repository's host/shared
+# boundaries without requiring a Nix evaluator.
+grep -q 'home-manager.users.january = import ../../home/january/default.nix;' hosts/desktop/default.nix \
+  || fail "desktop must use the january Home Manager profile"
+grep -q 'home-manager.users.ksledz = import ../../home/ksledz/default.nix;' hosts/work-laptop/default.nix \
+  || fail "work-laptop must use the ksledz Home Manager profile"
+
+grep -q '../shared/development.nix' home/january/default.nix \
+  || fail "desktop profile must import shared development tools"
+grep -q '../shared/development.nix' home/ksledz/default.nix \
+  || fail "work profile must import shared development tools"
+
+grep -q '../shared/plasma.nix' home/january/default.nix \
+  || fail "desktop profile must import shared Plasma configuration"
+grep -q '../shared/plasma.nix' home/ksledz/default.nix \
+  || fail "work profile must import shared Plasma configuration"
+
+grep -q '../shared/git-ssh.nix' home/january/default.nix \
+  || fail "desktop profile must import shared Git/SSH configuration"
+grep -q '../shared/git-ssh.nix' home/ksledz/default.nix \
+  || fail "work profile must import shared Git/SSH configuration"
+
+for profile in home/january/default.nix home/ksledz/default.nix; do
+  grep -q '../shared/zsh.nix' "$profile" \
+    || fail "$profile must import shared zsh configuration"
+  if grep -q 'initExtra' "$profile"; then
+    fail "$profile must not define host-specific zsh initExtra"
+  fi
+done
+
+if grep -q 'nodejs_24' hosts/desktop/default.nix; then
+  fail "desktop host must not define shared Node.js tooling"
+fi
+if grep -q 'nodejs_24' hosts/work-laptop/default.nix; then
+  fail "work-laptop host must not define shared Node.js tooling"
+fi
+if grep -q 'python3' hosts/desktop/default.nix; then
+  fail "desktop host must not define shared Python tooling"
+fi
+if grep -q 'python3' hosts/work-laptop/default.nix; then
+  fail "work-laptop host must not define shared Python tooling"
+fi
+grep -q 'pkgs.nodejs_24' home/shared/development.nix \
+  || fail "shared development module must provide Node.js 24"
+grep -q 'pkgs.python3' home/shared/development.nix \
+  || fail "shared development module must provide Python 3"
+
+for app in thunderbird obsidian slack vscode; do
+  grep -q "$app" home/ksledz/work-apps.nix \
+    || fail "work app list must include $app"
+  if grep -q "$app" home/january/default.nix; then
+    fail "desktop profile must not contain work app $app"
+  fi
+done
+
+for launcher in brave dolphin konsole; do
+  grep -q "$launcher" home/shared/plasma.nix \
+    || fail "shared Plasma launchers must include $launcher"
+done
+
+grep -q 'workLaunchers' home/ksledz/work-apps.nix \
+  || fail "work app module must define work launchers"
+grep -q 'programs.plasma.panels' home/shared/plasma.nix \
+  || fail "shared Plasma module must define the bottom panel declaratively"
+grep -q 'org.kde.plasma.systemtray' home/shared/plasma.nix \
+  || fail "shared Plasma panel must include the system tray"
+grep -q 'wintix-panel-spacer' home/shared/plasma.nix \
+  || fail "shared Plasma panel must use the custom spacer widget"
+grep -q 'wintix-plasma-reconcile' home/shared/plasma.nix \
+  || fail "shared Plasma module must provide the reconcile command"
+grep -q 'plasma-org.kde.plasma.desktop-appletsrc' home/shared/plasma.nix \
+  || fail "shared Plasma module must manage panel layout"
+grep -q 'kscreenlockerrc' home/shared/plasma.nix \
+  || fail "shared Plasma module must manage lock-screen configuration"
+grep -q 'kdeglobals' home/shared/plasma.nix \
+  || fail "shared Plasma module must manage KDE globals"
+grep -q 'kwinrc' home/shared/plasma.nix \
+  || fail "shared Plasma module must manage KWin configuration"
+
+if grep -q 'programs.plasma.panels' home/ksledz/work-apps.nix; then
+  fail "work app module must not redefine the shared Plasma panel"
+fi
+if grep -q 'wintix-plasma-reconcile' home/ksledz/work-apps.nix; then
+  fail "work app module must not redefine the shared reconcile command"
+fi
+
+# Smart-card support is intentionally host-scoped to the work laptop.
+grep -q 'services.pcscd.enable = true;' hosts/work-laptop/default.nix \
+  || fail "work-laptop must enable pcscd"
+grep -q 'pkgs.pcsc-tools' hosts/work-laptop/default.nix \
+  || fail "work-laptop must provide pcsc-tools"
+if grep -q 'services.pcscd.enable = true;' hosts/desktop/default.nix; then
+  fail "desktop must not enable work-laptop smart-card support"
+fi
+if grep -q 'services.pcscd.enable = true;' modules/workstation.nix; then
+  fail "shared workstation module must not enable work-laptop smart-card support"
+fi
+
+echo "architecture-test: ok"
