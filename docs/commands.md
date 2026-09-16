@@ -54,6 +54,20 @@ commands with `sudo`; they reject root invocation before touching user state.
 - **Prerequisites / safety constraints:** no live Plasma session is a safe
   no-op; root invocation is an error rather than a skipped session.
 
+## `wintix-charge-care` and `wintix-charge-full` (work laptop only)
+
+- **Purpose:** set the battery's runtime charge thresholds to care mode
+  (`70 / 80`) or temporary full-charge mode (`0 / 100`).
+- **Run as:** normal user.
+- **Usage:** `wintix-charge-care` or `wintix-charge-full`.
+- **What it changes:** the work laptop's live BAT0 charge-control sysfs values.
+  No mode flag or other state is persisted.
+- **Privilege behavior:** only the internal threshold-writing helper runs
+  through `sudo`; the user-facing commands reject direct root invocation.
+- **Prerequisites / safety constraints:** requires BAT0 charge threshold support.
+  Boot establishes care mode; full-charge mode lasts until changed explicitly
+  or reset by reboot. Ordinary rebuilds do not intentionally reset it.
+
 ## `wintix-secrets-bootstrap`
 
 - **Purpose:** restore an existing age identity after a reinstall.

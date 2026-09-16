@@ -232,6 +232,22 @@
           bash ${./tests}/architecture-test.sh ${./.}
           touch "$out"
         '';
+        battery-charge =
+          let
+            desktopConfig = self.nixosConfigurations.desktop.config;
+            workConfig = self.nixosConfigurations.work-laptop.config;
+            packageNames = packages: map (package: package.name) packages;
+          in
+          assert builtins.hasAttr "wintix-battery-charge-care" workConfig.systemd.services;
+          assert !(builtins.hasAttr "wintix-battery-charge-care" desktopConfig.systemd.services);
+          assert builtins.elem "wintix-charge-care" (packageNames workConfig.users.users.ksledz.packages);
+          assert builtins.elem "wintix-charge-full" (packageNames workConfig.users.users.ksledz.packages);
+          pkgs.runCommand "wintix-battery-charge-test" {
+            nativeBuildInputs = with pkgs; [ bash coreutils gnugrep ];
+          } ''
+            bash ${./hosts/work-laptop}/battery-charge-test.sh ${./.}
+            touch "$out"
+          '';
         plasma-panel =
           let
             desktopHome = self.nixosConfigurations.desktop.config.home-manager.users.january;

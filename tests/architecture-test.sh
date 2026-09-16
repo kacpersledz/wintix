@@ -84,4 +84,15 @@ if grep -q 'services.pcscd.enable = true;' modules/workstation.nix; then
   fail "shared workstation module must not enable work-laptop smart-card support"
 fi
 
+# Battery charge controls are hardware-specific and must remain on work-laptop.
+grep -q './battery-charge.nix' hosts/work-laptop/default.nix \
+  || fail "work-laptop must import its battery charge module"
+for item in wintix-charge-care wintix-charge-full wintix-battery-charge-care; do
+  grep -q "$item" hosts/work-laptop/battery-charge.nix \
+    || fail "work-laptop battery module must define $item"
+  if grep -q "$item" hosts/desktop/default.nix modules/*.nix; then
+    fail "$item must not leak into desktop or shared modules"
+  fi
+done
+
 echo "architecture-test: ok"
