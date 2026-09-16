@@ -8,7 +8,7 @@ let
   };
   mkChargeCommand = name: pkgs.writeShellApplication {
     inherit name;
-    runtimeInputs = with pkgs; [ coreutils sudo ];
+    runtimeInputs = with pkgs; [ coreutils ];
     text = builtins.replaceStrings
       [ "@batteryChargeHelper@" ]
       [ "${batteryChargeHelper}/bin/wintix-battery-charge" ]

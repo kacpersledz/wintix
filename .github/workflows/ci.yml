@@ -26,6 +26,9 @@ jobs:
       - name: Run architecture tests
         run: bash ./tests/architecture-test.sh
 
+      - name: Run battery charge tests
+        run: bash ./hosts/work-laptop/battery-charge-test.sh .
+
       - name: Run Brave reconciliation tests
         run: bash ./tests/brave-reconcile-test.sh
 
