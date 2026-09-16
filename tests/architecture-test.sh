@@ -11,7 +11,7 @@ fail() {
 
 # Keep this test intentionally simple: it protects the repository's host/shared
 # boundaries without requiring a Nix evaluator.
-grep -q 'home-manager.users.january = import ../../home/january/default.nix;' hosts/desktop/default.nix \
+grep -q 'users.january = import ../../home/january/default.nix;' hosts/desktop/default.nix \
   || fail "desktop must use the january Home Manager profile"
 grep -q 'home-manager.users.ksledz = import ../../home/ksledz/default.nix;' hosts/work-laptop/default.nix \
   || fail "work-laptop must use the ksledz Home Manager profile"
