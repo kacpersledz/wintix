@@ -1,9 +1,6 @@
 { pkgs, lib, self, ... }:
 {
-  imports = [
-    ../../modules/workstation.nix
-    ./power-profile-policy.nix
-  ];
+  imports = [ ../../modules/workstation.nix ];
   wintix.storage = {
     enable = true;
     mode = "selected-partition";
