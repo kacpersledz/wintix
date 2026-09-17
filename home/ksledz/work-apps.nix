@@ -12,6 +12,7 @@
   programs.thunderbird.enable = true;
 
   home.packages = [
+    pkgs.glab
     pkgs.obsidian
     unstablePkgs.slack
   ];
