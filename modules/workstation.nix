@@ -21,6 +21,7 @@
   };
   environment.systemPackages = with pkgs; [
     freerdp
+    steam-run-free
     unrar
     usbutils
   ];
