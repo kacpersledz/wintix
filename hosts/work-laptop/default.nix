@@ -15,6 +15,10 @@
     networkmanager-openvpn
   ];
   services.pcscd.enable = true;
+  services.udev.extraRules = ''
+    # Allow members of the local users group to access Huawei HDC devices.
+    SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ATTR{idProduct}=="5000", GROUP="users", MODE="0660"
+  '';
   environment.systemPackages = [ pkgs.pcsc-tools ];
   systemd.sleep.settings.Sleep = {
     HibernateMode = "shutdown";

@@ -91,6 +91,15 @@ if grep -q 'services.pcscd.enable = true;' modules/workstation.nix; then
   fail "shared workstation module must not enable work-laptop smart-card support"
 fi
 
+# Huawei HDC USB access is required only by work-laptop development tooling.
+for usb_id in 12d1 5000; do
+  grep -q "$usb_id" hosts/work-laptop/default.nix \
+    || fail "work-laptop must grant access to Huawei HDC USB devices"
+  if grep -q "$usb_id" hosts/desktop/default.nix modules/*.nix; then
+    fail "Huawei HDC USB access must remain scoped to work-laptop"
+  fi
+done
+
 # Battery charge controls are hardware-specific and must remain on work-laptop.
 grep -q './battery-charge.nix' hosts/work-laptop/default.nix \
   || fail "work-laptop must import its battery charge module"
