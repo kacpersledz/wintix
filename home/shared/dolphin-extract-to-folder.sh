@@ -2,7 +2,7 @@
 set -u
 
 notify_failure() {
-  notify-send --urgency=normal "Archive extraction" "$1"
+  notify-send --urgency=normal "Archive extraction" "$1" || true
 }
 
 if [[ $# -ne 1 ]]; then

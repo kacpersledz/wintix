@@ -11,6 +11,7 @@ mkdir -p "$fake_bin"
 printf '#!%s\n' "$(command -v bash)" >"$fake_bin/notify-send"
 cat >>"$fake_bin/notify-send" <<'EOF'
 printf '%s\0' "$@" >>"$NOTIFY_LOG"
+exit "${NOTIFY_STATUS:-0}"
 EOF
 
 printf '#!%s\n' "$(command -v bash)" >"$fake_bin/ark"
@@ -35,7 +36,7 @@ fail() {
 reset_logs() {
   : >"$ARK_LOG"
   : >"$NOTIFY_LOG"
-  unset ARK_STATUS ARK_PARTIAL
+  unset ARK_STATUS ARK_PARTIAL NOTIFY_STATUS
 }
 
 assert_ark_call() {
@@ -86,6 +87,14 @@ if bash "$helper" "$case_dir/foo.tar"; then
 fi
 [[ ! -s $ARK_LOG ]] || fail "Ark ran for an unsupported extension"
 [[ -s $NOTIFY_LOG ]] || fail "unsupported extension did not notify"
+
+reset_logs
+export NOTIFY_STATUS=25
+set +e
+bash -e "$helper" "$case_dir/foo.tar"
+status=$?
+set -e
+[[ $status -eq 2 ]] || fail "notification failure changed the intended error status"
 
 case_dir=$test_root/case-empty-failure
 mkdir -p "$case_dir"
