@@ -32,6 +32,9 @@ jobs:
       - name: Run Brave reconciliation tests
         run: bash ./tests/brave-reconcile-test.sh
 
+      - name: Run Dolphin extraction tests
+        run: bash ./tests/dolphin-extract-test.sh
+
       - name: Run path flake regression tests
         run: bash ./tests/path-flake-regression-test.sh
 

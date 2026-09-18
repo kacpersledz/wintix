@@ -232,6 +232,34 @@
           bash ${./tests}/architecture-test.sh ${./.}
           touch "$out"
         '';
+        dolphin-extract =
+          let
+            desktopHome = self.nixosConfigurations.desktop.config.home-manager.users.january;
+            workHome = self.nixosConfigurations.work-laptop.config.home-manager.users.ksledz;
+            serviceMenuName = "kio/servicemenus/wintix-extract-to-folder.desktop";
+            desktopServiceMenu = desktopHome.xdg.dataFile.${serviceMenuName};
+            workServiceMenu = workHome.xdg.dataFile.${serviceMenuName};
+            serviceMenu = pkgs.writeText "wintix-extract-to-folder.desktop" desktopServiceMenu.text;
+          in
+          assert desktopServiceMenu.executable;
+          assert workServiceMenu.executable;
+          assert desktopServiceMenu.text == workServiceMenu.text;
+          pkgs.runCommand "wintix-dolphin-extract-test" {
+            nativeBuildInputs = with pkgs; [ bash coreutils desktop-file-utils gnugrep ];
+          } ''
+            bash ${./tests}/dolphin-extract-test.sh ${./home/shared}/dolphin-extract-to-folder.sh
+            # desktop-file-validate does not understand KDE's Type=Service
+            # extension. Keep its two expected extension errors, but reject
+            # every other standards diagnostic.
+            validation_output=$(desktop-file-validate ${serviceMenu} 2>&1 || true)
+            unexpected_output=$(printf '%s\n' "$validation_output" | grep -Ev \
+              'key "(MimeType|Actions)" is present in group "Desktop Entry", but the type is "Service" while this key is only valid for type "Application"' || true)
+            test -z "$unexpected_output" || {
+              printf '%s\n' "$unexpected_output" >&2
+              exit 1
+            }
+            touch "$out"
+          '';
         battery-charge =
           let
             desktopConfig = self.nixosConfigurations.desktop.config;
