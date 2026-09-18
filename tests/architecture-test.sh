@@ -48,6 +48,11 @@ grep -q 'pkgs.python3' home/shared/development.nix \
 grep -q 'programs.vscode' home/shared/development.nix \
   || fail "shared development module must provide VS Code"
 
+# Private and machine-local Zsh helpers are connected through an optional,
+# conventional path rather than referenced from outside the flake.
+grep -q '\$HOME/.config/zsh/local.zsh' home/shared/zsh.nix \
+  || fail "shared zsh configuration must source the optional local extension"
+
 # Work-only applications and launchers stay in the work profile.
 for app in thunderbird obsidian slack; do
   grep -qi "$app" home/ksledz/work-apps.nix \
