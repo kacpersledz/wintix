@@ -4,6 +4,7 @@
   imports = [
     ../shared/brave.nix
     ../shared/development.nix
+    ../shared/dolphin.nix
     ../shared/plasma.nix
     ../shared/zsh.nix
     ../shared/git-ssh.nix

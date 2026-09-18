@@ -19,6 +19,8 @@ grep -q 'home-manager.users.ksledz = import ../../home/ksledz/default.nix;' host
 for profile in home/january/default.nix home/ksledz/default.nix; do
   grep -q '../shared/development.nix' "$profile" \
     || fail "$profile must import shared development tools"
+  grep -q '../shared/dolphin.nix' "$profile" \
+    || fail "$profile must import shared Dolphin configuration"
   grep -q '../shared/plasma.nix' "$profile" \
     || fail "$profile must import shared Plasma configuration"
   grep -q '../shared/git-ssh.nix' "$profile" \
