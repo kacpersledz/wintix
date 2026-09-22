@@ -58,6 +58,7 @@ in
     };
 
     kscreenlocker.appearance.wallpaper = pathWallpaper;
+    kscreenlocker.appearance.showMediaControls = false;
 
     kwin.edgeBarrier = 40;
     kwin.cornerBarrier = false;
