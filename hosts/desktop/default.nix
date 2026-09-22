@@ -26,11 +26,11 @@
     ];
     packages = with pkgs; [
       kdePackages.kate
-      self.packages.${pkgs.system}.wintix-rebuild
-      self.packages.${pkgs.system}.wintix-update
-      self.packages.${pkgs.system}.wintix-plasma-reconcile
-      self.packages.${pkgs.system}.wintix-secrets-bootstrap
-      self.packages.${pkgs.system}.wintix-secrets-enroll
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-rebuild
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-update
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-plasma-reconcile
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-secrets-bootstrap
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-secrets-enroll
     ];
     shell = pkgs.zsh;
   };
