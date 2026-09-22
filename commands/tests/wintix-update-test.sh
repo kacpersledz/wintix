@@ -34,6 +34,8 @@ write_fake_tools() {
     '  esac' \
     'elif [[ "$1 $2" == "flake check" ]]; then' \
     '  if [[ ${FAKE_NIX_CHECK_MODE:-pass} == fail ]]; then exit 91; fi' \
+    'elif [[ "$1 $2" == "store diff-closures" ]]; then' \
+    '  if [[ ${FAKE_NIX_DIFF_MODE:-pass} == fail ]]; then exit 93; fi' \
     'fi' > "$TEST_BIN/nix"
   chmod +x "$TEST_BIN/nix"
 
@@ -57,6 +59,7 @@ write_fake_tools() {
     'set -euo pipefail' \
     'printf "nixos-rebuild %s\\n" "$*" >> "$FAKE_LOG"' \
     'if [[ ${FAKE_REBUILD_MODE:-pass} == fail ]]; then exit 92; fi' \
+    'touch "$FAKE_SYSTEM_STATE"' \
     'if [[ ${FAKE_REBUILD_MODE:-pass} == dirty ]]; then printf "unexpected\\n" > "$FAKE_REBUILD_REPO/unexpected-after-rebuild.txt"; fi' \
     'if [[ -n ${FAKE_RACE_REPO:-} && ! -e ${FAKE_RACE_MARKER:-} ]]; then' \
     '  race_clone=${FAKE_RACE_CLONE:?missing race clone}' \
@@ -71,6 +74,18 @@ write_fake_tools() {
     '  touch "$FAKE_RACE_MARKER"' \
     'fi' > "$TEST_BIN/nixos-rebuild"
   chmod +x "$TEST_BIN/nixos-rebuild"
+
+  printf '%s\n' '#!/bin/sh' \
+    '[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"' \
+    'set -euo pipefail' \
+    'printf "readlink %s\\n" "$*" >> "$FAKE_LOG"' \
+    '[[ "$*" == "-f /run/current-system" ]]' \
+    'if [[ -e $FAKE_SYSTEM_STATE ]]; then' \
+    '  printf "%s\\n" "${FAKE_NEW_SYSTEM:-/nix/store/current-system}"' \
+    'else' \
+    '  printf "%s\\n" "${FAKE_OLD_SYSTEM:-/nix/store/current-system}"' \
+    'fi' > "$TEST_BIN/readlink"
+  chmod +x "$TEST_BIN/readlink"
 
   printf '%s\n' '#!/bin/sh' \
     'printf "plasma-reconcile\n" >> "$FAKE_LOG"' \
@@ -115,6 +130,7 @@ advance_remote() {
 run_update() {
   local repo=$1
   local mode=${2:-unchanged}
+  local system_state="$TEST_ROOT/system-state"
   local -a run_environment=(
     "WINTIX_PATH=$repo"
     "WINTIX_CONFIGURATION_FILE=$TEST_ROOT/configuration"
@@ -125,11 +141,17 @@ run_update() {
     "FAKE_GIT_LOG=${FAKE_GIT_LOG:-0}"
     "FAKE_REBUILD_MODE=${FAKE_REBUILD_MODE:-pass}"
     "FAKE_REBUILD_REPO=$repo"
+    "FAKE_SYSTEM_STATE=$system_state"
     "FAKE_RECONCILE_MODE=${FAKE_RECONCILE_MODE:-pass}"
+    "FAKE_NIX_DIFF_MODE=${FAKE_NIX_DIFF_MODE:-pass}"
+    "FAKE_OLD_SYSTEM=${FAKE_OLD_SYSTEM:-/nix/store/current-system}"
+    "FAKE_NEW_SYSTEM=${FAKE_NEW_SYSTEM:-/nix/store/current-system}"
     "FAKE_RACE_REPO=${FAKE_RACE_REPO:-}"
     "FAKE_RACE_MARKER=${FAKE_RACE_MARKER:-}"
     "FAKE_RACE_CLONE=${FAKE_RACE_CLONE:-}"
   )
+
+  rm -f -- "$system_state"
 
   if [[ ${RUN_WITHOUT_GIT_IDENTITY:-0} == 1 ]]; then
     run_environment+=(
@@ -171,6 +193,16 @@ assert_contains() {
   local expected=$2
   if ! grep -F -- "$expected" "$file" >/dev/null; then
     printf 'expected %s to contain: %s\n' "$file" "$expected" >&2
+    cat "$file" >&2
+    exit 1
+  fi
+}
+
+assert_not_contains() {
+  local file=$1
+  local unexpected=$2
+  if grep -F -- "$unexpected" "$file" >/dev/null; then
+    printf 'expected %s not to contain: %s\n' "$file" "$unexpected" >&2
     cat "$file" >&2
     exit 1
   fi
@@ -271,6 +303,41 @@ nix_check_line=$(grep -n '^nix flake check' "$FAKE_LOG" | cut -d: -f1)
 rebuild_line=$(grep -n '^nixos-rebuild ' "$FAKE_LOG" | cut -d: -f1)
 reconcile_line=$(grep -n '^plasma-reconcile$' "$FAKE_LOG" | cut -d: -f1)
 (( sudo_line < fetch_line && sudo_line < nix_update_line && sudo_line < nix_check_line && sudo_line < rebuild_line && rebuild_line < reconcile_line ))
+assert_clean "$repo"
+
+# Closure changes compare the systems active immediately before and after this
+# rebuild. An unchanged closure is silent.
+repo=$(make_repo closure-diff)
+FAKE_OLD_SYSTEM=/nix/store/old-system \
+  FAKE_NEW_SYSTEM=/nix/store/new-system \
+  run_update "$repo"
+assert_success
+assert_contains "$RUN_STDOUT" 'System changes:'
+assert_contains "$FAKE_LOG" 'readlink -f /run/current-system'
+assert_contains "$FAKE_LOG" 'nix store diff-closures /nix/store/old-system /nix/store/new-system'
+old_system_line=$(grep -n '^readlink -f /run/current-system$' "$FAKE_LOG" | head -n 1 | cut -d: -f1)
+rebuild_line=$(grep -n '^nixos-rebuild ' "$FAKE_LOG" | cut -d: -f1)
+new_system_line=$(grep -n '^readlink -f /run/current-system$' "$FAKE_LOG" | tail -n 1 | cut -d: -f1)
+diff_line=$(grep -n '^nix store diff-closures /nix/store/old-system /nix/store/new-system$' "$FAKE_LOG" | cut -d: -f1)
+(( old_system_line < rebuild_line && rebuild_line < new_system_line && new_system_line < diff_line ))
+assert_clean "$repo"
+
+repo=$(make_repo closure-diff-failure)
+FAKE_OLD_SYSTEM=/nix/store/old-system \
+  FAKE_NEW_SYSTEM=/nix/store/new-system \
+  FAKE_NIX_DIFF_MODE=fail \
+  run_update "$repo" lock
+assert_success
+assert_contains "$RUN_STDERR" 'could not display system closure changes'
+assert_contains "$FAKE_LOG" 'nix store diff-closures /nix/store/old-system /nix/store/new-system'
+[[ $(git -C "$repo" log -1 --format=%s) == 'chore: update flake inputs' ]]
+assert_clean "$repo"
+
+repo=$(make_repo closure-unchanged)
+run_update "$repo"
+assert_success
+assert_not_contains "$RUN_STDOUT" 'System changes:'
+assert_not_contains "$FAKE_LOG" 'nix store diff-closures'
 assert_clean "$repo"
 
 # A behind checkout fast-forwards before the update pipeline continues.

@@ -148,6 +148,10 @@ fi
 
 require_only_lockfile "unexpected Git changes before rebuild; only flake.lock may be modified"
 
+if ! old_system=$(readlink -f /run/current-system); then
+  die "could not resolve the current system before rebuild"
+fi
+
 if ! NIXOS_REBUILD=$(command -v nixos-rebuild); then
   die "nixos-rebuild is not available on PATH"
 fi
@@ -164,6 +168,15 @@ if [[ ! -x $RECONCILER ]]; then
 fi
 if ! "$RECONCILER"; then
   die "Plasma reconciliation failed; no commit or push was performed; flake.lock was left available for inspection"
+fi
+
+if ! new_system=$(readlink -f /run/current-system); then
+  printf 'wintix-update: could not resolve the newly activated system for closure comparison\n' >&2
+elif [[ "$old_system" != "$new_system" ]]; then
+  printf 'System changes:\n'
+  if ! nix store diff-closures "$old_system" "$new_system"; then
+    printf 'wintix-update: could not display system closure changes\n' >&2
+  fi
 fi
 
 require_only_lockfile "unexpected Git changes after rebuild; only flake.lock may be modified"
