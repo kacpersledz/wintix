@@ -1,4 +1,4 @@
-{ pkgs, lib, self, ... }:
+{ pkgs, lib, self, ajazz-time-correction-tool, ... }:
 {
   imports = [
     ../../modules/workstation.nix
@@ -18,6 +18,9 @@
   services.udev.extraRules = ''
     # Allow members of the local users group to access Huawei HDC devices.
     SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ATTR{idProduct}=="5000", GROUP="users", MODE="0660"
+
+    # Allow the Ajazz time correction tool to access the AK820 HID interfaces.
+    SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="8009", GROUP="users", MODE="0660"
   '';
   environment.systemPackages = [ pkgs.pcsc-tools ];
   systemd.sleep.settings.Sleep = {
@@ -30,6 +33,7 @@
     extraGroups = [ "networkmanager" "wheel" ];
     packages = [
       pkgs.kdePackages.kate
+      ajazz-time-correction-tool.packages.${pkgs.stdenv.hostPlatform.system}.default
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-rebuild
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-update
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-plasma-reconcile
