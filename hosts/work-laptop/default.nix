@@ -30,10 +30,10 @@
     extraGroups = [ "networkmanager" "wheel" ];
     packages = [
       pkgs.kdePackages.kate
-      self.packages.${pkgs.system}.wintix-rebuild
-      self.packages.${pkgs.system}.wintix-update
-      self.packages.${pkgs.system}.wintix-plasma-reconcile
-      self.packages.${pkgs.system}.wintix-work-bootstrap
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-rebuild
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-update
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-plasma-reconcile
+      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-work-bootstrap
     ];
     shell = pkgs.zsh;
   };

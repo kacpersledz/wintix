@@ -383,6 +383,7 @@
       apps.${system}.install = {
         type = "app";
         program = "${self.packages.${system}.installer}/bin/wintix-install";
+        meta.description = "Install Wintix on a new machine";
       };
     };
 }
