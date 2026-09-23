@@ -1,5 +1,25 @@
 {
   "nodes": {
+    "ajazz-time-correction-tool": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790094877,
+        "narHash": "sha256-FKLlc0y6RACLgJEEIye64M0H+8uMo9vrU7mw5UMIeso=",
+        "owner": "kacpersledz",
+        "repo": "ajazz-time-correction-tool",
+        "rev": "ffaddd9b287af0ded57fd8d2febae3616e958fdc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "kacpersledz",
+        "repo": "ajazz-time-correction-tool",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -103,7 +123,8 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "plasma-manager": "plasma-manager",
-        "sops-nix": "sops-nix"
+        "sops-nix": "sops-nix",
+        "ajazz-time-correction-tool": "ajazz-time-correction-tool"
       }
     },
     "sops-nix": {

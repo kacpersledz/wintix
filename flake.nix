@@ -21,6 +21,10 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    ajazz-time-correction-tool = {
+      url = "github:kacpersledz/ajazz-time-correction-tool";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -31,6 +35,7 @@
       plasma-manager,
       disko,
       sops-nix,
+      ajazz-time-correction-tool,
       self,
       ...
     }:
@@ -83,7 +88,7 @@
       };
       mkWorkstation = hostModule: nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit self unstablePkgs sops-nix; };
+        specialArgs = { inherit self unstablePkgs sops-nix ajazz-time-correction-tool; };
         modules = [
           disko.nixosModules.disko
           hostModule
@@ -258,6 +263,21 @@
               printf '%s\n' "$unexpected_output" >&2
               exit 1
             }
+            touch "$out"
+          '';
+        ajazz-time-correction-tool =
+          let
+            desktopConfig = self.nixosConfigurations.desktop.config;
+            workConfig = self.nixosConfigurations.work-laptop.config;
+            packageNames = packages: map (package: package.name) packages;
+            ajazzPackageName = ajazz-time-correction-tool.packages.${system}.default.name;
+          in
+          assert builtins.elem ajazzPackageName (packageNames workConfig.users.users.ksledz.packages);
+          assert !(builtins.elem ajazzPackageName (packageNames desktopConfig.users.users.january.packages));
+          assert nixpkgs.lib.hasInfix ''ATTRS{idVendor}=="0c45"'' workConfig.services.udev.extraRules;
+          assert nixpkgs.lib.hasInfix ''ATTRS{idProduct}=="8009"'' workConfig.services.udev.extraRules;
+          assert !(nixpkgs.lib.hasInfix ''ATTRS{idVendor}=="0c45"'' desktopConfig.services.udev.extraRules);
+          pkgs.runCommand "wintix-ajazz-time-correction-tool-test" { } ''
             touch "$out"
           '';
         battery-charge =
