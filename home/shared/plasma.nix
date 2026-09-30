@@ -31,9 +31,11 @@ in
         description = "Brave Picture-in-Picture";
 
         match = {
+          # Brave's Linux PiP application class has changed across releases,
+          # so match its stable component instead of one exact class value.
           window-class = {
             value = "brave";
-            type = "exact";
+            type = "substring";
             match-whole = false;
           };
 
