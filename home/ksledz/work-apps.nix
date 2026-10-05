@@ -13,6 +13,7 @@
 
   home.packages = [
     pkgs.glab
+    pkgs.nextcloud-client
     pkgs.obsidian
     unstablePkgs.slack
   ];
