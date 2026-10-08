@@ -21,6 +21,7 @@
   };
   environment.systemPackages = with pkgs; [
     freerdp
+    libsecret
     steam-run-free
     unrar
     usbutils
