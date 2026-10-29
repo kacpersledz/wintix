@@ -9,6 +9,9 @@ in
   services.displayManager.plasma-login-manager.enable = true;
   services.desktopManager.plasma6.enable = true;
 
+  # Provide a patched monospace font with Nerd Font glyphs for Konsole.
+  fonts.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
+
   environment.etc."plasmalogin.conf".text = ''
     [Greeter][Wallpaper][org.kde.image][General]
     Image=file://${pathWallpaper}

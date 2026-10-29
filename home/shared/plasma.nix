@@ -19,6 +19,15 @@ in
   config.xdg.configFile."wintix/plasma-launchers.json".text =
     builtins.toJSON { launchers = config.wintix.plasma.launchers; };
 
+  # Dedicated profile keeps the experiment separate from local Konsole profiles.
+  config.programs.konsole = {
+    enable = true;
+    profiles.Wintix.font = {
+      name = "JetBrainsMono Nerd Font Mono";
+      size = 11;
+    };
+  };
+
   config.programs.plasma = {
     enable = true;
     # Keep Plasma configuration hybrid: only the settings below are managed.
