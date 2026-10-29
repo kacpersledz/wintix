@@ -22,6 +22,7 @@ in
   # Dedicated profile keeps the experiment separate from local Konsole profiles.
   config.programs.konsole = {
     enable = true;
+    defaultProfile = "Wintix";
     profiles.Wintix.font = {
       name = "JetBrainsMono Nerd Font Mono";
       size = 11;
