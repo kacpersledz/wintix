@@ -29,6 +29,6 @@
     terminal = false;
     noDisplay = true;
 
-    settings.StartupWMClass = "md.Obsidian";
+    settings.StartupWMClass = "md.obsidian.Obsidian";
   };
 }
