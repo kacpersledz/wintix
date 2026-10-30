@@ -4,6 +4,7 @@
     "applications:thunderbird.desktop"
     "applications:md.obsidian.Obsidian.desktop"
     "applications:slack.desktop"
+    "applications:chatgpt.desktop"
     "applications:code.desktop"
   ];
 
