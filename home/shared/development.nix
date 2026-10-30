@@ -4,6 +4,7 @@
   home.packages = [
     pkgs.nodejs_24
     pkgs.python3
+    unstablePkgs.chatgpt
   ];
 
   programs.vscode = {
