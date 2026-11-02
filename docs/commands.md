@@ -53,6 +53,8 @@ commands with `sudo`; they reject root invocation before touching user state.
 - **Usage:** `wintix-update-android-studio`.
 - **What it changes:** the Android Studio input in `flake.lock` and the active
   NixOS system. Ordinary `wintix-update` runs do not advance this pin.
+- **Package source:** its own stable Nixpkgs 26.05 input, independent of the
+  system's ordinary Nixpkgs update.
 - **SDK management:** Android Studio is installed declaratively; its SDK Manager
   remains responsible for SDK components under the user's home directory.
 - **Initial deployment:** activate the new system generation before relying on

@@ -51,7 +51,6 @@ From any working directory, use these commands to rebuild or update the locally 
 ```sh
 wintix-rebuild
 wintix-update
-wintix-update-android-studio
 ```
 
 The short `rebuild` and `update` Zsh aliases delegate to these commands. Set
@@ -69,11 +68,12 @@ switch. See the [command reference](docs/commands.md) for the full privilege
 and safety contract.
 
 Android Studio is installed declaratively on the work laptop from its own
-unstable Nixpkgs pin. `wintix-update` leaves that pin unchanged;
+stable 26.05 Nixpkgs pin. `wintix-update` leaves that pin unchanged;
 `wintix-update-android-studio` advances it while running the usual validation
 and rebuild workflow. Android Studio's SDK Manager continues to manage SDK
 components in the user's home directory. After the first generation containing
-this change is activated, the dedicated update command is available.
+this change is activated, the dedicated update command is available on the work
+laptop.
 
 Git, GitHub SSH, and the reinstall secrets bootstrap are documented in
 [`docs/secrets.md`](docs/secrets.md). After restoring the device age identity

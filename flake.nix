@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-android-studio.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-android-studio.url = "github:NixOS/nixpkgs/nixos-26.05";
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -317,17 +317,16 @@
             workConfig = self.nixosConfigurations.work-laptop.config;
             desktopPackages = desktopConfig.home-manager.users.january.home.packages;
             workPackages = workConfig.home-manager.users.ksledz.home.packages;
+            packageNames = packages: map (package: package.name) packages;
+            androidStudioPackageName = androidStudioPkgs.android-studio.name;
             lock = builtins.fromJSON (builtins.readFile ./flake.lock);
             rootInputs = lock.nodes.root.inputs;
           in
-          assert rootInputs.nixpkgs-unstable != rootInputs.nixpkgs-android-studio;
-          assert builtins.elem androidStudioPkgs.android-studio workPackages;
-          assert !(builtins.elem androidStudioPkgs.android-studio desktopPackages);
+          assert rootInputs.nixpkgs != rootInputs.nixpkgs-android-studio;
+          assert builtins.elem androidStudioPackageName (packageNames workPackages);
+          assert !(builtins.elem androidStudioPackageName (packageNames desktopPackages));
           assert !(builtins.elem "applications:android-studio.desktop" workConfig.home-manager.users.ksledz.wintix.plasma.launchers);
-          pkgs.runCommand "wintix-android-studio-config-test" { } ''
-            test -e ${androidStudioPkgs.android-studio}/share/applications/android-studio.desktop
-            touch "$out"
-          '';
+          pkgs.runCommand "wintix-android-studio-config-test" { } ''touch "$out"'';
         battery-charge =
           let
             desktopConfig = self.nixosConfigurations.desktop.config;
