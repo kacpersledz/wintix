@@ -208,8 +208,11 @@
             ];
             januaryHome = desktopConfig.home-manager.users.january;
             ksledzHome = workConfig.home-manager.users.ksledz;
-            januaryActivation = januaryHome.home.activationPackage;
-            ksledzActivation = ksledzHome.home.activationPackage;
+            extensionManifests = home:
+              map (
+                extension:
+                home.home.file."${home.xdg.configHome}/BraveSoftware/Brave-Browser/External Extensions/${extension.id}.json".source
+              ) home.programs.brave.extensions;
             extensionIds = home: map (extension: extension.id) home.programs.brave.extensions;
           in
           assert januaryHome.programs.brave.enable;
@@ -239,11 +242,8 @@
             ' ${extraPolicy} >/dev/null
             test -e ${desktopConfig.environment.etc."chromium/native-messaging-hosts/org.kde.plasma.browser_integration.json".source}
             test -e ${januaryHome.programs.brave.finalPackage}/share/applications/com.brave.Browser.desktop
-            for generation in ${januaryActivation} ${ksledzActivation}; do
-              for extension in ${builtins.concatStringsSep " " expectedExtensionIds}; do
-                declaration="$generation/home-files/.config/BraveSoftware/Brave-Browser/External Extensions/$extension.json"
-                jq -e '.external_update_url == "https://clients2.google.com/service/update2/crx"' "$declaration" >/dev/null
-              done
+            for declaration in ${nixpkgs.lib.escapeShellArgs (map toString (extensionManifests januaryHome ++ extensionManifests ksledzHome))}; do
+              jq -e '.external_update_url == "https://clients2.google.com/service/update2/crx"' "$declaration" >/dev/null
             done
             touch "$out"
           '';
