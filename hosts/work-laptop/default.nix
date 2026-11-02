@@ -23,6 +23,7 @@
     SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="8009", GROUP="users", MODE="0660"
   '';
   environment.systemPackages = [ pkgs.pcsc-tools ];
+  nixpkgs.config.android_sdk.accept_license = true;
   systemd.sleep.settings.Sleep = {
     HibernateMode = "shutdown";
   };
@@ -36,7 +37,6 @@
       ajazz-time-correction-tool.packages.${pkgs.stdenv.hostPlatform.system}.default
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-rebuild
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-update
-      self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-update-android-studio
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-plasma-reconcile
       self.packages.${pkgs.stdenv.hostPlatform.system}.wintix-work-bootstrap
     ];

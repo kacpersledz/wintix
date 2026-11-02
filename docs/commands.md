@@ -31,8 +31,8 @@ commands with `sudo`; they reject root invocation before touching user state.
 
 ## `wintix-update`
 
-- **Purpose:** synchronize `master`, update ordinary flake inputs, validate,
-  switch, and commit/push a lockfile-only change when needed.
+- **Purpose:** synchronize `master`, update flake inputs, validate, switch, and
+  commit/push a lockfile-only change when needed.
 - **Run as:** normal user.
 - **Usage:** `wintix-update`.
 - **What it changes:** the local checkout, possibly `flake.lock`, and the
@@ -43,24 +43,6 @@ commands with `sudo`; they reject root invocation before touching user state.
   unprivileged.
 - **Prerequisites / safety constraints:** requires a clean `master` checkout,
   an `origin` remote, Git identity, and push access for a changed lockfile.
-  The Android Studio Nixpkgs pin is explicitly preserved.
-
-## `wintix-update-android-studio` (work laptop only)
-
-- **Purpose:** update only Android Studio's independent Nixpkgs pin, then use
-  the same validation, rebuild, reconciliation, and lockfile commit/push flow.
-- **Run as:** normal user.
-- **Usage:** `wintix-update-android-studio`.
-- **What it changes:** the Android Studio input in `flake.lock` and the active
-  NixOS system. Ordinary `wintix-update` runs do not advance this pin.
-- **Package source:** its own stable Nixpkgs 26.05 input, independent of the
-  system's ordinary Nixpkgs update.
-- **SDK management:** Android Studio is installed declaratively; its SDK Manager
-  remains responsible for SDK components under the user's home directory.
-- **Initial deployment:** activate the new system generation before relying on
-  this command; it is installed with that generation.
-- **Prerequisites / safety constraints:** uses the same clean `master`, origin,
-  Git identity, credentials, and failure handling as `wintix-update`.
 
 ## `wintix-plasma-reconcile`
 

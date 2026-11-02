@@ -2,19 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-UPDATE_SOURCE_SCRIPT="$SCRIPT_DIR/wintix-update.sh"
+UPDATE_SCRIPT="$SCRIPT_DIR/wintix-update.sh"
 TEST_ROOT=$(mktemp -d)
-UPDATE_SCRIPT="$TEST_ROOT/wintix-update.sh"
 TEST_BIN="$TEST_ROOT/bin"
 TEST_USER_PROFILE="$TEST_ROOT/user-profile"
 FAKE_LOG="$TEST_ROOT/fake.log"
 REAL_GIT=$(command -v git)
 mkdir -p "$TEST_BIN" "$TEST_USER_PROFILE/bin"
-NORMAL_UPDATE_INPUTS='nixpkgs nixpkgs-unstable home-manager plasma-manager disko sops-nix ajazz-time-correction-tool'
-update_script_contents=$(<"$UPDATE_SOURCE_SCRIPT")
-update_script_contents=${update_script_contents//@ordinaryUpdateInputs@/$NORMAL_UPDATE_INPUTS}
-printf '%s\n' "$update_script_contents" > "$UPDATE_SCRIPT"
-chmod +x "$UPDATE_SCRIPT"
 
 cleanup() {
   rm -rf -- "$TEST_ROOT"
@@ -30,13 +24,10 @@ write_fake_tools() {
     'set -euo pipefail' \
     'printf "nix %s\\n" "$*" >> "$FAKE_LOG"' \
     'if [[ "$1 $2" == "flake update" ]]; then' \
-    '  repo=${@: -1}; target=nixpkgs' \
-    '  for input in "$@"; do [[ $input == nixpkgs-android-studio ]] && target=nixpkgs-android-studio; done' \
+    '  repo=${4:?missing flake path}' \
     '  case ${FAKE_NIX_UPDATE_MODE:-unchanged} in' \
     '    unchanged) ;;' \
-    '    lock) jq --arg node "$target" '\'' .nodes[$node].locked.rev = "updated" '\'' "$repo/flake.lock" > "$repo/flake.lock.tmp"; mv "$repo/flake.lock.tmp" "$repo/flake.lock" ;;' \
-    '    android-pin) jq --arg node nixpkgs-android-studio '\'' .nodes[$node].locked.rev = "updated" '\'' "$repo/flake.lock" > "$repo/flake.lock.tmp"; mv "$repo/flake.lock.tmp" "$repo/flake.lock" ;;' \
-    '    ordinary-pin) jq --arg node nixpkgs '\'' .nodes[$node].locked.rev = "updated" '\'' "$repo/flake.lock" > "$repo/flake.lock.tmp"; mv "$repo/flake.lock.tmp" "$repo/flake.lock" ;;' \
+    '    lock) printf "updated\\n" >> "$repo/flake.lock" ;;' \
     '    other) printf "unexpected\\n" > "$repo/unrelated.txt" ;;' \
     '    staged-other) printf "unexpected\\n" > "$repo/unrelated.txt"; git -C "$repo" add -- unrelated.txt ;;' \
     '    *) printf "unknown fake update mode\\n" >&2; exit 90 ;;' \
@@ -112,32 +103,7 @@ make_repo() {
   git -C "$repo" config user.name test
   git -C "$repo" config user.email test@example.invalid
   printf 'placeholder\n' > "$repo/flake.nix"
-  cat > "$repo/flake.lock" <<'EOF'
-{
-  "nodes": {
-    "nixpkgs": { "locked": { "rev": "old-stable" } },
-    "nixpkgs-unstable": { "locked": { "rev": "old-unstable" } },
-    "home-manager": { "locked": { "rev": "old-home-manager" } },
-    "plasma-manager": { "locked": { "rev": "old-plasma-manager" } },
-    "disko": { "locked": { "rev": "old-disko" } },
-    "sops-nix": { "locked": { "rev": "old-sops-nix" } },
-    "ajazz-time-correction-tool": { "locked": { "rev": "old-ajazz" } },
-    "nixpkgs-android-studio": { "locked": { "rev": "old-android-studio" } },
-    "root": {
-      "inputs": {
-        "nixpkgs": "nixpkgs",
-        "nixpkgs-unstable": "nixpkgs-unstable",
-        "home-manager": "home-manager",
-        "plasma-manager": "plasma-manager",
-        "disko": "disko",
-        "sops-nix": "sops-nix",
-        "ajazz-time-correction-tool": "ajazz-time-correction-tool",
-        "nixpkgs-android-studio": "nixpkgs-android-studio"
-      }
-    }
-  }
-}
-EOF
+  printf '{"nodes":{}}\n' > "$repo/flake.lock"
   git -C "$repo" add -- flake.nix flake.lock
   git -C "$repo" commit --quiet -m initial
   git -C "$repo" remote add origin "$origin"
@@ -164,12 +130,7 @@ advance_remote() {
 run_update() {
   local repo=$1
   local mode=${2:-unchanged}
-  local update_mode=${3:-normal}
   local system_state="$TEST_ROOT/system-state"
-  local -a update_args=()
-  if [[ $update_mode == android-studio ]]; then
-    update_args=(--android-studio)
-  fi
   local -a run_environment=(
     "WINTIX_PATH=$repo"
     "WINTIX_CONFIGURATION_FILE=$TEST_ROOT/configuration"
@@ -204,7 +165,7 @@ run_update() {
   RUN_STDOUT="$TEST_ROOT/stdout"
   RUN_STDERR="$TEST_ROOT/stderr"
   if env "${run_environment[@]}" \
-    bash "$UPDATE_SCRIPT" "${update_args[@]}" >"$RUN_STDOUT" 2>"$RUN_STDERR"; then
+    bash "$UPDATE_SCRIPT" >"$RUN_STDOUT" 2>"$RUN_STDERR"; then
     RUN_RC=0
   else
     RUN_RC=$?
@@ -338,62 +299,11 @@ assert_contains "$FAKE_LOG" 'plasma-reconcile'
 sudo_line=$(grep -n '^sudo -v$' "$FAKE_LOG" | cut -d: -f1)
 fetch_line=$(grep -n '^git -C .* fetch origin master$' "$FAKE_LOG" | cut -d: -f1)
 nix_update_line=$(grep -n '^nix flake update' "$FAKE_LOG" | cut -d: -f1)
-assert_contains "$FAKE_LOG" 'nix flake update nixpkgs nixpkgs-unstable home-manager plasma-manager disko sops-nix ajazz-time-correction-tool --flake '
-assert_not_contains "$FAKE_LOG" 'nixpkgs-android-studio'
 nix_check_line=$(grep -n '^nix flake check' "$FAKE_LOG" | cut -d: -f1)
 rebuild_line=$(grep -n '^nixos-rebuild ' "$FAKE_LOG" | cut -d: -f1)
 reconcile_line=$(grep -n '^plasma-reconcile$' "$FAKE_LOG" | cut -d: -f1)
 (( sudo_line < fetch_line && sudo_line < nix_update_line && sudo_line < nix_check_line && sudo_line < rebuild_line && rebuild_line < reconcile_line ))
 assert_clean "$repo"
-
-# Runtime snapshots reject lock changes that violate the chosen update mode,
-# even if a future Nix behavior or an accidental command change crosses pins.
-repo=$(make_repo ordinary-update-crosses-android-pin)
-run_update "$repo" android-pin
-assert_failure
-assert_contains "$RUN_STDERR" 'Android Studio revision changed'
-assert_not_contains "$FAKE_LOG" 'nixos-rebuild'
-[[ $(git -C "$repo" log -1 --format=%s) == initial ]]
-[[ -n $(git -C "$repo" status --porcelain=v1) ]]
-
-repo=$(make_repo android-update-crosses-ordinary-pin)
-run_update "$repo" ordinary-pin android-studio
-assert_failure
-assert_contains "$RUN_STDERR" 'ordinary flake input revisions changed'
-assert_not_contains "$FAKE_LOG" 'nixos-rebuild'
-[[ $(git -C "$repo" log -1 --format=%s) == initial ]]
-[[ -n $(git -C "$repo" status --porcelain=v1) ]]
-
-# The dedicated updater shares the full workflow but selects only the Android
-# Studio root input and uses its own commit subject.
-repo=$(make_repo android-studio-update)
-run_update "$repo" lock android-studio
-assert_success
-assert_contains "$FAKE_LOG" 'nix flake update nixpkgs-android-studio --flake '
-assert_not_contains "$FAKE_LOG" 'nixpkgs nixpkgs-unstable'
-[[ $(git -C "$repo" log -1 --format=%s) == 'chore: update Android Studio input' ]]
-assert_contains "$FAKE_LOG" 'nixos-rebuild'
-assert_contains "$FAKE_LOG" 'plasma-reconcile'
-assert_clean "$repo"
-
-# The dedicated command keeps the same safety and failure behavior: failed
-# validation leaves its lock change uncommitted and does not rebuild or push.
-repo=$(make_repo android-studio-check-failure)
-FAKE_NIX_CHECK_MODE=fail run_update "$repo" lock android-studio
-assert_failure
-assert_contains "$RUN_STDERR" 'nix flake check failed'
-assert_not_contains "$FAKE_LOG" 'nixos-rebuild'
-assert_not_contains "$FAKE_LOG" 'git -C '
-[[ $(git -C "$repo" log -1 --format=%s) == initial ]]
-[[ -n $(git -C "$repo" status --porcelain=v1) ]]
-
-# Both commands apply the master-branch safety gate before invoking Nix.
-repo=$(make_repo android-studio-branch-safety)
-git -C "$repo" branch -m review
-run_update "$repo" unchanged android-studio
-assert_failure
-assert_contains "$RUN_STDERR" "checkout master before updating"
-[[ ! -s $FAKE_LOG ]]
 
 # Closure changes compare the systems active immediately before and after this
 # rebuild. An unchanged closure is silent.
