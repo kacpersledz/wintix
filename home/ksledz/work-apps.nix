@@ -1,4 +1,4 @@
-{ pkgs, unstablePkgs, lib, ... }:
+{ pkgs, unstablePkgs, androidStudioPkgs, lib, ... }:
 {
   wintix.plasma.launchers = lib.mkAfter [
     "applications:thunderbird.desktop"
@@ -17,6 +17,7 @@
     pkgs.nextcloud-client
     pkgs.obsidian
     unstablePkgs.slack
+    androidStudioPkgs.android-studio
   ];
 
   # Obsidian identifies its native Wayland window as md.obsidian.Obsidian,

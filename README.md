@@ -55,14 +55,25 @@ wintix-update
 
 The short `rebuild` and `update` Zsh aliases delegate to these commands. Set
 `WINTIX_PATH` to use a different local checkout; otherwise they use
-`$HOME/.wintix`. The installer persists the selection in `/etc/wintix/configuration`; neither command guesses it from the hostname. `wintix-update` requires a clean `master` checkout, advances
-flake inputs, validates and switches the system, and commits and pushes only a
-changed `flake.lock`. Automatic update commits require a configured Git author
-identity, and automatic pushes require authenticated write access to `origin`.
+`$HOME/.wintix`. The installer persists the selection in
+`/etc/wintix/configuration`; neither command guesses it from the hostname.
+`wintix-update` requires a clean `master` checkout, advances ordinary flake
+inputs while preserving the Android Studio pin, validates and switches the
+system, and commits and pushes only a changed `flake.lock`. Automatic update
+commits require a configured Git author identity, and automatic pushes require
+authenticated write access to `origin`.
 Run the installer as root, but run every installed `wintix-*` command as the
 normal user: rebuild and update authenticate early and elevate only the system
 switch. See the [command reference](docs/commands.md) for the full privilege
 and safety contract.
+
+Android Studio is installed declaratively on the work laptop from its own
+stable 26.05 Nixpkgs pin. `wintix-update` leaves that pin unchanged;
+`wintix-update-android-studio` advances it while running the usual validation
+and rebuild workflow. Android Studio's SDK Manager continues to manage SDK
+components in the user's home directory. After the first generation containing
+this change is activated, the dedicated update command is available on the work
+laptop.
 
 Git, GitHub SSH, and the reinstall secrets bootstrap are documented in
 [`docs/secrets.md`](docs/secrets.md). After restoring the device age identity
