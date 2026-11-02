@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-android-studio.url = "github:NixOS/nixpkgs/nixos-unstable";
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -28,9 +29,10 @@
   };
 
   outputs =
-    {
+    inputs@{
       nixpkgs,
       nixpkgs-unstable,
+      nixpkgs-android-studio,
       home-manager,
       plasma-manager,
       disko,
@@ -46,6 +48,23 @@
         inherit system;
         config.allowUnfree = true;
       };
+      androidStudioPkgs = import nixpkgs-android-studio {
+        inherit system;
+        config = {
+          allowUnfree = true;
+          android_sdk.accept_license = true;
+        };
+      };
+      ordinaryUpdateInputs = [
+        "nixpkgs"
+        "nixpkgs-unstable"
+        "home-manager"
+        "plasma-manager"
+        "disko"
+        "sops-nix"
+        "ajazz-time-correction-tool"
+      ];
+      rootInputNames = builtins.filter (name: name != "self") (builtins.attrNames inputs);
       wintixRuntimeInputs = with pkgs; [
         bash
         coreutils
@@ -68,8 +87,16 @@
       };
       wintixUpdate = pkgs.writeShellApplication {
         name = "wintix-update";
+        runtimeInputs = wintixRuntimeInputs ++ [ wintixPlasmaReconcile pkgs.jq ];
+        text = builtins.replaceStrings
+          [ "@ordinaryUpdateInputs@" ]
+          [ (builtins.concatStringsSep " " ordinaryUpdateInputs) ]
+          (builtins.readFile ./commands/wintix-update.sh);
+      };
+      wintixUpdateAndroidStudio = pkgs.writeShellApplication {
+        name = "wintix-update-android-studio";
         runtimeInputs = wintixRuntimeInputs ++ [ wintixPlasmaReconcile ];
-        text = builtins.readFile ./commands/wintix-update.sh;
+        text = ''exec ${wintixUpdate}/bin/wintix-update --android-studio'';
       };
       wintixSecretsBootstrap = pkgs.writeShellApplication {
         name = "wintix-secrets-bootstrap";
@@ -88,14 +115,14 @@
       };
       mkWorkstation = hostModule: nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit self unstablePkgs sops-nix ajazz-time-correction-tool; };
+        specialArgs = { inherit self unstablePkgs androidStudioPkgs sops-nix ajazz-time-correction-tool; };
         modules = [
           disko.nixosModules.disko
           hostModule
           home-manager.nixosModules.home-manager
           {
             home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
-            home-manager.extraSpecialArgs = { inherit sops-nix unstablePkgs; };
+            home-manager.extraSpecialArgs = { inherit sops-nix unstablePkgs androidStudioPkgs; };
           }
         ];
       };
@@ -108,6 +135,8 @@
           };
         };
     in
+    assert nixpkgs.lib.sort builtins.lessThan ordinaryUpdateInputs
+      == nixpkgs.lib.sort builtins.lessThan (builtins.filter (name: name != "nixpkgs-android-studio") rootInputNames);
     {
       nixosConfigurations = {
         desktop = mkWorkstation ./hosts/desktop/default.nix;
@@ -127,6 +156,7 @@
         disko = disko.packages.${system}.disko;
         wintix-rebuild = wintixRebuild;
         wintix-update = wintixUpdate;
+        wintix-update-android-studio = wintixUpdateAndroidStudio;
         wintix-plasma-reconcile = wintixPlasmaReconcile;
         wintix-secrets-bootstrap = wintixSecretsBootstrap;
         wintix-secrets-enroll = wintixSecretsEnroll;
@@ -280,6 +310,24 @@
           pkgs.runCommand "wintix-ajazz-time-correction-tool-test" { } ''
             touch "$out"
           '';
+
+        android-studio-config =
+          let
+            desktopConfig = self.nixosConfigurations.desktop.config;
+            workConfig = self.nixosConfigurations.work-laptop.config;
+            desktopPackages = desktopConfig.home-manager.users.january.home.packages;
+            workPackages = workConfig.home-manager.users.ksledz.home.packages;
+            lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+            rootInputs = lock.nodes.root.inputs;
+          in
+          assert rootInputs.nixpkgs-unstable != rootInputs.nixpkgs-android-studio;
+          assert builtins.elem androidStudioPkgs.android-studio workPackages;
+          assert !(builtins.elem androidStudioPkgs.android-studio desktopPackages);
+          assert !(builtins.elem "applications:android-studio.desktop" workConfig.home-manager.users.ksledz.wintix.plasma.launchers);
+          pkgs.runCommand "wintix-android-studio-config-test" { } ''
+            test -e ${androidStudioPkgs.android-studio}/share/applications/android-studio.desktop
+            touch "$out"
+          '';
         battery-charge =
           let
             desktopConfig = self.nixosConfigurations.desktop.config;
@@ -342,7 +390,7 @@
           touch "$out"
         '';
         update = pkgs.runCommand "wintix-update-test" {
-          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep util-linux ];
+          nativeBuildInputs = with pkgs; [ bash coreutils git gnugrep jq util-linux ];
         } ''
           bash ${./commands}/tests/wintix-update-test.sh
           touch "$out"

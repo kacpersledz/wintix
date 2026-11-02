@@ -1,8 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+UPDATE_MODE=${1:-normal}
+if [[ $# -gt 1 || ( $UPDATE_MODE != normal && $UPDATE_MODE != --android-studio ) ]]; then
+  printf 'usage: wintix-update [--android-studio]\n' >&2
+  exit 2
+fi
+
+if [[ $UPDATE_MODE == --android-studio ]]; then
+  COMMAND_NAME=wintix-update-android-studio
+  UPDATE_LABEL='Android Studio'
+  update_inputs=(nixpkgs-android-studio)
+  COMMIT_SUBJECT='chore: update Android Studio input'
+else
+  COMMAND_NAME=wintix-update
+  UPDATE_LABEL='flake inputs'
+  update_inputs=( @ordinaryUpdateInputs@ )
+  COMMIT_SUBJECT='chore: update flake inputs'
+fi
+
 if [[ $(id -u) -eq 0 ]]; then
-  printf 'wintix-update: run this command as your normal user; it will request administrator privileges when needed\n' >&2
+  printf '%s: run this command as your normal user; it will request administrator privileges when needed\n' "$COMMAND_NAME" >&2
   exit 1
 fi
 
@@ -14,7 +32,7 @@ STAGED_FILE=$(mktemp)
 trap 'rm -f -- "$STATUS_FILE" "$STAGED_FILE"' EXIT
 
 die() {
-  printf 'wintix-update: %s\n' "$*" >&2
+  printf '%s: %s\n' "$COMMAND_NAME" "$*" >&2
   exit 1
 }
 
@@ -133,7 +151,26 @@ fi
 
 require_clean "repository is dirty after synchronizing with origin/master"
 
-if ! nix flake update --flake "$WINTIX_PATH"; then
+snapshot_protected_inputs() {
+  local node
+  if [[ $UPDATE_MODE == --android-studio ]]; then
+    jq -S -c '
+      .nodes as $nodes
+      | .nodes.root.inputs
+      | with_entries(select(.key != "nixpkgs-android-studio"))
+      | map_values(. as $node | $nodes[$node].locked)
+    ' "$WINTIX_PATH/flake.lock"
+  else
+    node=$(jq -er '.nodes.root.inputs["nixpkgs-android-studio"]' "$WINTIX_PATH/flake.lock") || return
+    jq -S -c --arg node "$node" '.nodes[$node].locked' "$WINTIX_PATH/flake.lock"
+  fi
+}
+
+if ! protected_inputs_before=$(snapshot_protected_inputs); then
+  die "could not snapshot the input revisions that this update must preserve"
+fi
+
+if ! nix flake update "${update_inputs[@]}" --flake "$WINTIX_PATH"; then
   die "nix flake update failed; no commit or push was performed"
 fi
 
@@ -147,6 +184,17 @@ if ! nix flake check "path:$WINTIX_PATH"; then
 fi
 
 require_only_lockfile "unexpected Git changes before rebuild; only flake.lock may be modified"
+
+if ! protected_inputs_after=$(snapshot_protected_inputs); then
+  die "could not verify protected input revisions after updating; flake.lock was left available for inspection"
+fi
+if [[ $protected_inputs_before != "$protected_inputs_after" ]]; then
+  if [[ $UPDATE_MODE == --android-studio ]]; then
+    die "ordinary flake input revisions changed during the Android Studio update; flake.lock was left available for inspection"
+  else
+    die "Android Studio revision changed during the ordinary update; flake.lock was left available for inspection"
+  fi
+fi
 
 if ! old_system=$(readlink -f /run/current-system); then
   die "could not resolve the current system before rebuild"
@@ -171,18 +219,22 @@ if ! "$RECONCILER"; then
 fi
 
 if ! new_system=$(readlink -f /run/current-system); then
-  printf 'wintix-update: could not resolve the newly activated system for closure comparison\n' >&2
+  printf '%s: could not resolve the newly activated system for closure comparison\n' "$COMMAND_NAME" >&2
 elif [[ "$old_system" != "$new_system" ]]; then
   printf 'System changes:\n'
   if ! nix store diff-closures "$old_system" "$new_system"; then
-    printf 'wintix-update: could not display system closure changes\n' >&2
+    printf '%s: could not display system closure changes\n' "$COMMAND_NAME" >&2
   fi
 fi
 
 require_only_lockfile "unexpected Git changes after rebuild; only flake.lock may be modified"
 
 if [[ ! -s "$STATUS_FILE" ]]; then
-  printf 'Wintix is already up to date.\n'
+  if [[ $UPDATE_MODE == --android-studio ]]; then
+    printf 'Android Studio is already up to date.\n'
+  else
+    printf 'Wintix is already up to date.\n'
+  fi
   exit 0
 fi
 
@@ -193,7 +245,7 @@ fi
 require_staged_only_lockfile
 require_only_lockfile "unexpected Git changes before commit; only flake.lock may be modified"
 
-if ! git -C "$WINTIX_PATH" commit -m 'chore: update flake inputs'; then
+if ! git -C "$WINTIX_PATH" commit -m "$COMMIT_SUBJECT"; then
   die "could not commit flake.lock; no push was performed"
 fi
 commit=$(git -C "$WINTIX_PATH" rev-parse --short HEAD)
@@ -203,7 +255,7 @@ require_clean "unexpected Git changes after commit; refusing to push"
 push_output=$(mktemp)
 if git -C "$WINTIX_PATH" push origin master >"$push_output" 2>&1; then
   rm -f -- "$push_output"
-  printf 'Updated flake inputs, rebuilt Wintix, and pushed commit %s.\n' "$commit"
+  printf 'Updated %s, rebuilt Wintix, and pushed commit %s.\n' "$UPDATE_LABEL" "$commit"
   exit 0
 fi
 
