@@ -190,7 +190,7 @@
           assert extensionIds januaryHome == expectedExtensionIds;
           assert extensionIds ksledzHome == expectedExtensionIds;
           assert desktopConfig.programs.chromium.enablePlasmaBrowserIntegration;
-          assert !(builtins.elem pkgs.brave desktopConfig.environment.systemPackages);
+          assert !(builtins.elem januaryHome.programs.brave.finalPackage desktopConfig.environment.systemPackages);
           pkgs.runCommand "wintix-brave-config-test" {
             nativeBuildInputs = with pkgs; [ jq ];
           } ''
