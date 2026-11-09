@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  unstablePkgs,
   ...
 }:
 
@@ -18,6 +19,7 @@ in
 {
   programs.brave = {
     enable = true;
+    package = unstablePkgs.brave;
     extensions = [
       { id = "mlomiejdfkolichcflejclcbmpeaniij"; } # Ghostery AdBlocker for Privacy
       { id = "mnjggcdmjocbbbhaepdhchncahnbgone"; } # SponsorBlock for YouTube
