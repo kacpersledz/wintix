@@ -21,6 +21,7 @@
   };
   environment.systemPackages = with pkgs; [
     freerdp
+    libreoffice-qt
     libsecret
     steam-run-free
     unrar
