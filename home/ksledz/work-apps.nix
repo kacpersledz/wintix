@@ -18,6 +18,7 @@
     pkgs.obsidian
     unstablePkgs.slack
     pkgs.android-studio
+    pkgs.android-tools
   ];
 
   # Obsidian identifies its native Wayland window as md.obsidian.Obsidian,
