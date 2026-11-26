@@ -11,6 +11,7 @@
     efiDevice = lib.mkDefault "/dev/disk/by-uuid/installer-generated";
   };
   networking.hostName = lib.mkDefault "work-laptop";
+  networking.resolvconf.extraOptions = [ "timeout:1" ];
   networking.networkmanager.plugins = with pkgs; [
     networkmanager-openvpn
   ];
